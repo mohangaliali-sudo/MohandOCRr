@@ -18,7 +18,8 @@ version = 1.0
 # PYTHON / KIVY / TFLITE
 # ============================================================
 
-requirements = python3,kivy==2.3.1,pillow,numpy==1.26.4,tflite-runtime,plyer
+requirements = python3,kivy==2.3.1,pillow,numpy==1.26.4,plyer
+
 orientation = portrait
 
 fullscreen = 0

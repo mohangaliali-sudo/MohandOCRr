@@ -80,7 +80,7 @@ jobs:
 
 
       # ====================================================
-      # Verify files
+      # Verify project
       # ====================================================
 
       - name: Verify project
@@ -94,6 +94,7 @@ jobs:
 
           find . -maxdepth 4 -type f | sort
 
+
           echo
           echo "========================================"
           echo "MODEL"
@@ -103,6 +104,7 @@ jobs:
 
           ls -lh assets/best.tflite
 
+
           echo
           echo "========================================"
           echo "CLASSES"
@@ -110,7 +112,15 @@ jobs:
 
           test -f classes.txt
 
-          wc -l classes.txt
+          CLASS_COUNT=$(grep -cve '^[[:space:]]*$' classes.txt)
+
+          echo "Classes: $CLASS_COUNT"
+
+          if [ "$CLASS_COUNT" -ne 46 ]; then
+            echo "ERROR: Expected 46 classes, found $CLASS_COUNT"
+            exit 1
+          fi
+
 
           echo
           echo "========================================"
@@ -123,19 +133,31 @@ jobs:
 
           echo "ocr_processor.py syntax OK"
 
+
           echo
           echo "========================================"
-          echo "RECIPE"
+          echo "MAIN"
           echo "========================================"
 
-          test -f p4a-recipes/tflite-runtime/__init__.py
+          test -f main.py
 
-          sed -n '1,260p' \
-            p4a-recipes/tflite-runtime/__init__.py
+          python -m py_compile main.py
+
+          echo "main.py syntax OK"
+
+
+          echo
+          echo "========================================"
+          echo "BUILD SPEC"
+          echo "========================================"
+
+          test -f buildozer.spec
+
+          echo "buildozer.spec found"
 
 
       # ====================================================
-      # Buildozer configuration
+      # Verify Buildozer configuration
       # ====================================================
 
       - name: Verify Buildozer configuration
@@ -155,6 +177,7 @@ jobs:
       - name: Cache Buildozer
         uses: actions/cache@v4
         with:
+
           path: |
             ~/.buildozer
             .buildozer
@@ -162,8 +185,9 @@ jobs:
           key: |
             buildozer-${{ runner.os }}-${{ hashFiles(
               'buildozer.spec',
-              'p4a-recipes/tflite-runtime/__init__.py',
-              'ocr_processor.py'
+              'ocr_processor.py',
+              'main.py',
+              'classes.txt'
             ) }}
 
           restore-keys: |
@@ -179,15 +203,6 @@ jobs:
 
           set -e
 
-          echo "========================================"
-          echo "TFLITE RECIPE DIRECTORY"
-          echo "========================================"
-
-          echo "$P4A_tflite_runtime_DIR"
-
-          ls -lah "$P4A_tflite_runtime_DIR"
-
-          echo
           echo "========================================"
           echo "BUILD APK"
           echo "========================================"
@@ -208,9 +223,17 @@ jobs:
           echo "========================================"
 
           if [ -d bin ]; then
-            find bin -maxdepth 2 -type f -print -exec ls -lh {} \;
+
+            find bin \
+              -maxdepth 2 \
+              -type f \
+              -print \
+              -exec ls -lh {} \;
+
           else
+
             echo "bin directory does not exist"
+
           fi
 
 

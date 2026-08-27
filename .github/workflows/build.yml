@@ -175,9 +175,6 @@ jobs:
       # ====================================================
 
       - name: Build APK
-        env:
-          P4A_tflite_runtime_DIR: ${{ github.workspace }}/p4a-recipes/tflite-runtime
-
         run: |
 
           set -e

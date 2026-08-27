@@ -1,27 +1,11 @@
 [app]
 
-# ============================================================
-# APPLICATION
-# ============================================================
-
 title = Mohand Sanskrit OCR
 
 package.name = mohandsanskritocr
-
 package.domain = org.mohand
 
 source.dir = .
-
-version = 1.0.0
-
-orientation = portrait
-
-fullscreen = 0
-
-
-# ============================================================
-# SOURCE FILES
-# ============================================================
 
 source.include_exts =
     py,
@@ -39,19 +23,24 @@ source.include_patterns =
     assets/fonts/*.ttf,
     classes.txt
 
+version = 1.0.0
+
+orientation = portrait
+fullscreen = 0
+
 
 # ============================================================
-# PYTHON REQUIREMENTS
+# REQUIREMENTS
 # ============================================================
 
 requirements =
-    python3,
+    python3==3.11.9,
     kivy==2.3.1,
     numpy,
     pillow,
     opencv,
     plyer,
-    ai-edge-litert
+    tflite-runtime
 
 
 # ============================================================
@@ -72,7 +61,7 @@ android.private_storage = True
 
 
 # ============================================================
-# ANDROID PERMISSIONS
+# PERMISSIONS
 # ============================================================
 
 android.permissions =
@@ -81,7 +70,7 @@ android.permissions =
 
 
 # ============================================================
-# ANDROID ENTRY POINT
+# ENTRY POINT
 # ============================================================
 
 android.entrypoint = org.kivy.android.PythonActivity
@@ -94,13 +83,6 @@ android.entrypoint = org.kivy.android.PythonActivity
 log_level = 2
 
 warn_on_root = 1
-
-
-# ============================================================
-# BUILD OPTIONS
-# ============================================================
-
-android.allow_backup = False
 
 
 [buildozer]

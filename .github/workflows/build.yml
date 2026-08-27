@@ -11,50 +11,69 @@ jobs:
 
     steps:
 
-      # ======================================================
-      # CHECKOUT
-      # ======================================================
+      # =========================================================
+      # 1. Checkout
+      # =========================================================
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
 
-      # ======================================================
-      # PYTHON 3.11
-      # ======================================================
+      # =========================================================
+      # 2. Python 3.11.9
+      # IMPORTANT:
+      # Do NOT use pip cache because the project has no
+      # requirements.txt / pyproject.toml.
+      # =========================================================
 
-      - name: Set up Python 3.11
+      - name: Setup Python 3.11.9
         uses: actions/setup-python@v5
         with:
           python-version: "3.11.9"
-          cache: "pip"
 
 
-      # ======================================================
-      # JAVA 17
-      # ======================================================
+      # =========================================================
+      # 3. Java 17
+      # =========================================================
 
-      - name: Set up Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
 
-      # ======================================================
-      # SYSTEM DEPENDENCIES
-      # ======================================================
+      # =========================================================
+      # 4. Android environment
+      # =========================================================
+
+      - name: Setup Android environment
+        shell: bash
+        run: |
+
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+
+          java -version
+          python --version
+
+
+      # =========================================================
+      # 5. System dependencies
+      # =========================================================
 
       - name: Install system dependencies
         run: |
+
           sudo apt-get update
 
           sudo apt-get install -y \
             git \
             zip \
             unzip \
-            openjdk-17-jdk \
             autoconf \
+            automake \
             libtool \
             pkg-config \
             zlib1g-dev \
@@ -64,114 +83,170 @@ jobs:
             cmake \
             libffi-dev \
             libssl-dev \
-            automake \
             build-essential \
             ccache
 
 
-      # ======================================================
-      # PYTHON BUILD TOOLS
-      # ======================================================
+      # =========================================================
+      # 6. Python build tools
+      # =========================================================
 
-      - name: Install build tools
+      - name: Install Buildozer
         run: |
-          python --version
+
           python -m pip install --upgrade pip setuptools wheel
 
           python -m pip install \
             buildozer \
             "Cython==0.29.37"
 
-
-      # ======================================================
-      # VERIFY
-      # ======================================================
-
-      - name: Verify environment
-        run: |
           echo "========================================"
           echo "Python"
           python --version
-          which python
+
+          echo "========================================"
+          echo "Pip"
+          python -m pip --version
 
           echo "========================================"
           echo "Buildozer"
           buildozer --version
 
           echo "========================================"
-          echo "Java"
-          java -version
+          echo "Cython"
+          cython --version
+
+
+      # =========================================================
+      # 7. Verify project files
+      # =========================================================
+
+      - name: Verify project
+        run: |
 
           echo "========================================"
-          echo "Project files"
+          echo "Repository"
+          echo "========================================"
+
+          pwd
+
+          echo "========================================"
+          echo "Files"
+          echo "========================================"
+
           find . -maxdepth 3 -type f | sort
 
           echo "========================================"
           echo "buildozer.spec"
+          echo "========================================"
+
           test -f buildozer.spec
+
+          echo "buildozer.spec FOUND"
 
           echo "========================================"
           echo "main.py"
+          echo "========================================"
+
           test -f main.py
+
+          echo "main.py FOUND"
 
           echo "========================================"
           echo "ocr_processor.py"
+          echo "========================================"
+
           test -f ocr_processor.py
 
-          echo "========================================"
-          echo "best.tflite"
-          test -f assets/best.tflite
+          echo "ocr_processor.py FOUND"
 
           echo "========================================"
           echo "classes.txt"
+          echo "========================================"
+
           test -f classes.txt
 
+          echo "classes.txt FOUND"
 
-      # ======================================================
-      # CLEAN
-      # ======================================================
+          echo "========================================"
+          echo "TFLite model"
+          echo "========================================"
+
+          test -f assets/best.tflite
+
+          ls -lh assets/best.tflite
+
+          echo "best.tflite FOUND"
+
+          echo "========================================"
+          echo "Fonts"
+          echo "========================================"
+
+          find assets/fonts -type f -name "*.ttf" -print
+
+
+      # =========================================================
+      # 8. Validate buildozer.spec
+      # =========================================================
+
+      - name: Validate Buildozer configuration
+        run: |
+
+          echo "========================================"
+          echo "Buildozer configuration"
+          echo "========================================"
+
+          grep -E \
+            "^(title|package.name|package.domain|source.dir|version|orientation|android.api|android.minapi|android.archs|requirements)" \
+            buildozer.spec
+
+
+      # =========================================================
+      # 9. Clean Buildozer
+      # =========================================================
 
       - name: Clean Buildozer
         run: |
+
           rm -rf .buildozer
           rm -rf bin
 
+          mkdir -p bin
 
-      # ======================================================
-      # BUILD APK
-      # ======================================================
-      - name: Check p4a recipes
-        run: |
-          python -m pip install --upgrade python-for-android
-          p4a recipes | grep -Ei 'tflite|tensorflow|litert' || true
-          p4a --version
 
-          
+      # =========================================================
+      # 10. Build APK
+      # =========================================================
+
       - name: Build Android APK
         env:
           P4A_DOWNLOAD_TIMEOUT: "180"
           P4A_DOWNLOAD_RETRIES: "10"
 
         run: |
+
           buildozer -v android debug
 
 
-      # ======================================================
-      # CHECK APK
-      # ======================================================
+      # =========================================================
+      # 11. Show APK
+      # =========================================================
 
-      - name: Check APK
+      - name: Show APK
         run: |
+
           echo "========================================"
-          echo "APK files:"
-          find bin -type f -name "*.apk" -print
+          echo "APK files"
+          echo "========================================"
+
+          find bin -type f -name "*.apk" -ls
 
           test -n "$(find bin -type f -name '*.apk' -print -quit)"
 
 
-      # ======================================================
-      # UPLOAD APK
-      # ======================================================
+      # =========================================================
+      # 12. Upload APK
+      # =========================================================
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

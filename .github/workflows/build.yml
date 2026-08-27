@@ -33,17 +33,20 @@ jobs:
           autoconf \
           automake \
           libtool \
+          libltdl-dev \
           pkg-config \
           gettext \
+          autopoint \
           texinfo \
           cmake
 
         pip install --upgrade pip setuptools
         pip install buildozer cython packaging
 
-    - name: Clean previous builds (Safe)
+    - name: Clean previous Buildozer files
       run: |
         rm -rf .buildozer/
+        rm -rf ~/.buildozer/
 
     - name: Build with Buildozer
       run: |

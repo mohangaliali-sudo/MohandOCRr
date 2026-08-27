@@ -19,34 +19,12 @@
 # Letterbox preprocessing
 # CPU inference
 # ============================================================
-
 import os
 
 import cv2
 import numpy as np
 
-
-# ============================================================
-# TFLITE IMPORT
-# ============================================================
-
-try:
-
-    from tflite_runtime.interpreter import Interpreter
-
-except ImportError:
-
-    try:
-
-        from tensorflow.lite.python.interpreter import Interpreter
-
-    except ImportError:
-
-        raise ImportError(
-            "لم يتم العثور على TFLite Runtime."
-        )
-
-
+from tflite_runtime.interpreter import Interpreter
 # ============================================================
 # CLASS
 # ============================================================

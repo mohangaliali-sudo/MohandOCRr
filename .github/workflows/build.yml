@@ -67,15 +67,22 @@ jobs:
 
 
       # =========================================================
-      # 4. JAVA
+      # 4. JAVA 17
       # =========================================================
 
       - name: Configure Java 17
         run: |
 
-          echo "JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64" >> "$GITHUB_ENV"
+          set -e
 
-          echo "/usr/lib/jvm/temurin-17-jdk-amd64/bin" >> "$GITHUB_PATH"
+          JAVA_HOME_PATH=$(dirname $(dirname $(readlink -f $(which javac))))
+
+          echo "JAVA_HOME=$JAVA_HOME_PATH" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_PATH/bin" >> "$GITHUB_PATH"
+
+          echo "JAVA_HOME=$JAVA_HOME_PATH"
+
+          java -version
 
 
       # =========================================================
@@ -104,35 +111,7 @@ jobs:
 
 
       # =========================================================
-      # 6. CHECK ASSETS
-      # =========================================================
-
-      - name: Check assets
-        run: |
-
-          set -e
-
-          echo "========================================"
-          echo "CHECKING ASSETS"
-          echo "========================================"
-
-          echo ""
-          echo "Model:"
-          test -f assets/best.tflite
-          ls -lh assets/best.tflite
-
-          echo ""
-          echo "Fonts:"
-
-          test -f assets/fonts/Cairo-Regular.ttf
-          test -f assets/fonts/NotoSansDevanagari-Regular.ttf
-          test -f assets/fonts/Roboto-Regular.ttf
-
-          ls -lh assets/fonts/*.ttf
-
-
-      # =========================================================
-      # 7. SHOW PROJECT FILES
+      # 6. CHECK PROJECT
       # =========================================================
 
       - name: Check project files
@@ -152,7 +131,7 @@ jobs:
 
 
       # =========================================================
-      # 8. CHECK MODEL
+      # 7. CHECK MODEL
       # =========================================================
 
       - name: Check TFLite model
@@ -161,7 +140,7 @@ jobs:
           set -e
 
           echo "========================================"
-          echo "MODEL"
+          echo "CHECK TFLITE MODEL"
           echo "========================================"
 
           test -f assets/best.tflite
@@ -170,14 +149,50 @@ jobs:
 
           SIZE=$(stat -c%s assets/best.tflite)
 
+          echo ""
           echo "Model size: $SIZE bytes"
 
           if [ "$SIZE" -lt 1000000 ]; then
+            echo ""
             echo "ERROR: best.tflite appears too small."
             exit 1
           fi
 
-          echo "TFLite model OK"
+          echo ""
+          echo "TFLite model OK."
+
+
+      # =========================================================
+      # 8. CHECK FONTS
+      # =========================================================
+
+      - name: Check fonts
+        run: |
+
+          set -e
+
+          echo "========================================"
+          echo "CHECK FONTS"
+          echo "========================================"
+
+          test -f assets/fonts/Cairo-Regular.ttf
+          test -f assets/fonts/NotoSansDevanagari-Regular.ttf
+          test -f assets/fonts/Roboto-Regular.ttf
+
+          echo ""
+          echo "Cairo:"
+          ls -lh assets/fonts/Cairo-Regular.ttf
+
+          echo ""
+          echo "Devanagari:"
+          ls -lh assets/fonts/NotoSansDevanagari-Regular.ttf
+
+          echo ""
+          echo "Roboto:"
+          ls -lh assets/fonts/Roboto-Regular.ttf
+
+          echo ""
+          echo "All fonts OK."
 
 
       # =========================================================
@@ -190,31 +205,10 @@ jobs:
           set -e
 
           echo "========================================"
-          echo "CLASSES"
+          echo "CHECK CLASSES"
           echo "========================================"
 
           test -f classes.txt
-
-          echo ""
-          echo "Raw classes.txt:"
-          cat -n classes.txt
-
-          echo ""
-          echo "----------------------------------------"
-
-          CLASS_COUNT=$(wc -l < classes.txt)
-
-          echo "classes.txt lines: $CLASS_COUNT"
-
-          echo ""
-          echo "Expected:"
-          echo "46 classes"
-          echo "Class IDs: 0 through 45"
-
-          echo ""
-          echo "----------------------------------------"
-          echo "CLASS INDEX TABLE"
-          echo "----------------------------------------"
 
           python - <<'PY'
 
@@ -222,15 +216,22 @@ jobs:
 
           path = Path("classes.txt")
 
-          # Read without automatically adding anything
           text = path.read_text(
               encoding="utf-8-sig"
           )
 
-          # Remove only empty lines at the end
           lines = text.splitlines()
 
+          # Remove empty lines
+          lines = [
+              line.strip()
+              for line in lines
+              if line.strip()
+          ]
+
           print()
+          print("CLASS INDEX TABLE")
+          print("----------------------------------------")
 
           for index, name in enumerate(lines):
 
@@ -238,16 +239,14 @@ jobs:
                   f"ID {index:02d} -> {name}"
               )
 
-          print()
-          print(
-              f"TOTAL CLASSES = {len(lines)}"
-          )
+          print("----------------------------------------")
+          print(f"TOTAL CLASSES = {len(lines)}")
 
           if len(lines) != 46:
 
               print()
               print(
-                  "ERROR: classes.txt does not contain 46 classes."
+                  "ERROR: classes.txt must contain exactly 46 classes."
               )
 
               print(
@@ -278,11 +277,9 @@ jobs:
           echo "========================================"
 
           python -m py_compile main.py
-
           echo "main.py syntax OK"
 
           python -m py_compile ocr_processor.py
-
           echo "ocr_processor.py syntax OK"
 
 
@@ -305,34 +302,36 @@ jobs:
 
 
       # =========================================================
-      # 12. CHECK REQUIRED SPEC SETTINGS
+      # 12. VALIDATE BUILDOZER SPEC
       # =========================================================
 
-      - name: Validate buildozer requirements
+      - name: Validate buildozer.spec
         run: |
 
           set -e
 
           echo "========================================"
-          echo "VALIDATING REQUIREMENTS"
+          echo "VALIDATING BUILDOZER SPEC"
           echo "========================================"
 
+          echo ""
+          echo "Requirements:"
           grep -E "^requirements" buildozer.spec || true
 
           echo ""
-
+          echo "Included extensions:"
           grep -E "^source.include_exts" buildozer.spec || true
 
           echo ""
-
+          echo "Architecture:"
           grep -E "^android.archs" buildozer.spec || true
 
           echo ""
-
+          echo "Android API:"
           grep -E "^android.api" buildozer.spec || true
 
           echo ""
-
+          echo "Minimum API:"
           grep -E "^android.minapi" buildozer.spec || true
 
 
@@ -356,7 +355,33 @@ jobs:
 
 
       # =========================================================
-      # 14. FREE TYPE TEST
+      # 14. SHOW CACHE STATUS
+      # =========================================================
+
+      - name: Show Buildozer cache
+        run: |
+
+          echo "========================================"
+          echo "BUILDOZER CACHE"
+          echo "========================================"
+
+          if [ -d ".buildozer" ]; then
+            echo ".buildozer exists"
+            du -sh .buildozer || true
+          else
+            echo ".buildozer does not exist yet"
+          fi
+
+          if [ -d "$HOME/.buildozer" ]; then
+            echo "$HOME/.buildozer exists"
+            du -sh "$HOME/.buildozer" || true
+          else
+            echo "$HOME/.buildozer does not exist yet"
+          fi
+
+
+      # =========================================================
+      # 15. FREETYPE CONNECTION TEST
       # =========================================================
 
       - name: Test FreeType server
@@ -370,21 +395,18 @@ jobs:
           echo "TEST FREETYPE DOWNLOAD"
           echo "========================================"
 
-          echo ""
-          echo "$URL"
-
           SUCCESS=0
 
-          for i in 1 2 3 4 5 6 7 8 9 10
+          for i in 1 2 3 4 5
           do
 
             echo ""
-            echo "Attempt $i / 10"
+            echo "Attempt $i / 5"
 
             curl \
               --fail \
               --location \
-              --retry 3 \
+              --retry 2 \
               --retry-delay 5 \
               --connect-timeout 30 \
               --max-time 180 \
@@ -404,7 +426,6 @@ jobs:
 
             fi
 
-            echo ""
             echo "Download failed."
 
             sleep 10
@@ -424,7 +445,7 @@ jobs:
 
 
       # =========================================================
-      # 15. BUILD APK
+      # 16. BUILD APK
       # =========================================================
 
       - name: Build Android APK
@@ -439,7 +460,7 @@ jobs:
           set -e
 
           echo "========================================"
-          echo "START BUILDOZER BUILD"
+          echo "START ANDROID BUILD"
           echo "========================================"
 
           echo ""
@@ -451,37 +472,55 @@ jobs:
           buildozer --version
 
           echo ""
-          echo "Starting Android build..."
+          echo "Java:"
+          java -version
 
-          buildozer \
-            -v \
-            android \
-            debug
+          echo ""
+          echo "========================================"
+          echo "BUILD"
+          echo "========================================"
+
+          buildozer -v android debug
 
 
       # =========================================================
-      # 16. SHOW APK
+      # 17. FIND APK
       # =========================================================
 
       - name: Find APK
-        if: success()
+        if: always()
         run: |
 
-          set -e
-
           echo "========================================"
-          echo "APK FILES"
+          echo "SEARCHING FOR APK"
           echo "========================================"
 
-          find bin \
+          echo ""
+          echo "bin directory:"
+
+          if [ -d "bin" ]; then
+            find bin \
+              -type f \
+              -name "*.apk" \
+              -print \
+              -exec ls -lh {} \;
+          else
+            echo "bin directory does not exist."
+          fi
+
+          echo ""
+          echo "All APK files in project:"
+
+          find . \
             -type f \
             -name "*.apk" \
+            ! -path "./.git/*" \
             -print \
-            -exec ls -lh {} \;
+            -exec ls -lh {} \; || true
 
 
       # =========================================================
-      # 17. VERIFY APK EXISTS
+      # 18. VERIFY APK
       # =========================================================
 
       - name: Verify APK
@@ -490,8 +529,21 @@ jobs:
 
           set -e
 
+          echo "========================================"
+          echo "VERIFY APK"
+          echo "========================================"
+
+          if [ ! -d "bin" ]; then
+
+            echo "ERROR: bin directory does not exist."
+
+            exit 1
+
+          fi
+
           APK_COUNT=$(find bin -type f -name "*.apk" | wc -l)
 
+          echo ""
           echo "APK count: $APK_COUNT"
 
           if [ "$APK_COUNT" -eq 0 ]; then
@@ -506,9 +558,14 @@ jobs:
           echo ""
           echo "APK generated successfully."
 
+          find bin \
+            -type f \
+            -name "*.apk" \
+            -exec ls -lh {} \;
+
 
       # =========================================================
-      # 18. UPLOAD APK
+      # 19. UPLOAD APK
       # =========================================================
 
       - name: Upload APK
@@ -527,7 +584,54 @@ jobs:
 
 
       # =========================================================
-      # 19. UPLOAD BUILD LOGS
+      # 20. COLLECT BUILD LOGS
+      # =========================================================
+
+      - name: Collect build logs
+        if: failure()
+        run: |
+
+          echo "========================================"
+          echo "COLLECTING BUILD INFORMATION"
+          echo "========================================"
+
+          mkdir -p build_logs
+
+          echo ""
+          echo "Project files:"
+          find . \
+            -maxdepth 3 \
+            -type f \
+            ! -path "./.git/*" \
+            > build_logs/project_files.txt || true
+
+          echo ""
+          echo "Buildozer directory:"
+
+          if [ -d ".buildozer" ]; then
+
+            du -sh .buildozer \
+              > build_logs/buildozer_size.txt \
+              2>&1 || true
+
+            find .buildozer \
+              -maxdepth 5 \
+              -type f \
+              | head -5000 \
+              > build_logs/buildozer_files.txt \
+              2>&1 || true
+
+          fi
+
+          echo ""
+          echo "Disk:"
+          df -h \
+            > build_logs/disk.txt \
+            2>&1 || true
+
+
+      # =========================================================
+      # 21. UPLOAD BUILD LOGS
       # =========================================================
 
       - name: Upload build logs
@@ -539,8 +643,9 @@ jobs:
           name: MohandSanskritOCR-build-logs
 
           path: |
-            .buildozer/
-            ~/.buildozer/
+            build_logs/
+            .buildozer/android/platform/build-arm64-v8a/build/python-installs/
+            .buildozer/android/platform/build-arm64-v8a/build/other_builds/
 
           if-no-files-found: ignore
 

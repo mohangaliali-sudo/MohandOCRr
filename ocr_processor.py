@@ -24,8 +24,13 @@ import os
 import cv2
 import numpy as np
 
-from tflite_runtime.interpreter import Interpreter
-# ============================================================
+try:
+    from tflite_runtime.interpreter import Interpreter
+except ImportError:
+    try:
+        from ai_edge_litert.interpreter import Interpreter
+    except ImportError:
+        from tensorflow.lite.python.interpreter import Interpreter# ============================================================
 # CLASS
 # ============================================================
 

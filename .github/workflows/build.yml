@@ -7,6 +7,7 @@ on:
     branches:
       - main
 
+
 jobs:
 
   build:
@@ -17,17 +18,17 @@ jobs:
 
     steps:
 
-      # =====================================================
+      # ====================================================
       # Checkout
-      # =====================================================
+      # ====================================================
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
 
-      # =====================================================
+      # ====================================================
       # Python
-      # =====================================================
+      # ====================================================
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -35,9 +36,9 @@ jobs:
           python-version: "3.11"
 
 
-      # =====================================================
-      # System packages
-      # =====================================================
+      # ====================================================
+      # System dependencies
+      # ====================================================
 
       - name: Install system dependencies
         run: |
@@ -64,9 +65,9 @@ jobs:
             ccache
 
 
-      # =====================================================
+      # ====================================================
       # Python packages
-      # =====================================================
+      # ====================================================
 
       - name: Install Buildozer
         run: |
@@ -78,59 +79,78 @@ jobs:
             cython==0.29.37
 
 
-      # =====================================================
-      # Verify project
-      # =====================================================
+      # ====================================================
+      # Verify files
+      # ====================================================
 
       - name: Verify project
         run: |
 
-          echo "=============================="
-          echo "PROJECT"
-          echo "=============================="
+          set -e
 
-          find . -maxdepth 3 -type f | sort
+          echo "========================================"
+          echo "PROJECT FILES"
+          echo "========================================"
+
+          find . -maxdepth 4 -type f | sort
 
           echo
-          echo "=============================="
-          echo "TFLITE MODEL"
-          echo "=============================="
+          echo "========================================"
+          echo "MODEL"
+          echo "========================================"
 
           test -f assets/best.tflite
 
           ls -lh assets/best.tflite
 
           echo
-          echo "=============================="
+          echo "========================================"
+          echo "CLASSES"
+          echo "========================================"
+
+          test -f classes.txt
+
+          wc -l classes.txt
+
+          echo
+          echo "========================================"
+          echo "OCR PROCESSOR"
+          echo "========================================"
+
+          test -f ocr_processor.py
+
+          python -m py_compile ocr_processor.py
+
+          echo "ocr_processor.py syntax OK"
+
+          echo
+          echo "========================================"
           echo "RECIPE"
-          echo "=============================="
+          echo "========================================"
 
           test -f p4a-recipes/tflite-runtime/__init__.py
 
-          ls -lh p4a-recipes/tflite-runtime/__init__.py
-
-          echo
-          echo "Recipe:"
-          sed -n '1,240p' p4a-recipes/tflite-runtime/__init__.py
+          sed -n '1,260p' \
+            p4a-recipes/tflite-runtime/__init__.py
 
 
-      # =====================================================
-      # Verify buildozer.spec
-      # =====================================================
+      # ====================================================
+      # Buildozer configuration
+      # ====================================================
 
       - name: Verify Buildozer configuration
         run: |
 
-          echo "=============================="
+          echo "========================================"
           echo "BUILDOZER SPEC"
-          echo "=============================="
+          echo "========================================"
 
           sed -n '1,240p' buildozer.spec
 
 
-      # =====================================================
-      # Cache Buildozer
-      # =====================================================
+      # ====================================================
+      # Cache
+      # ====================================================
 
       - name: Cache Buildozer
         uses: actions/cache@v4
@@ -138,54 +158,77 @@ jobs:
           path: |
             ~/.buildozer
             .buildozer
+
           key: |
             buildozer-${{ runner.os }}-${{ hashFiles(
               'buildozer.spec',
-              'p4a-recipes/tflite-runtime/__init__.py'
+              'p4a-recipes/tflite-runtime/__init__.py',
+              'ocr_processor.py'
             ) }}
+
           restore-keys: |
             buildozer-${{ runner.os }}-
 
 
-      # =====================================================
+      # ====================================================
       # Build APK
-      # =====================================================
+      # ====================================================
 
       - name: Build APK
         env:
           P4A_tflite_runtime_DIR: ${{ github.workspace }}/p4a-recipes/tflite-runtime
+
         run: |
 
-          echo "=============================="
-          echo "BUILDING APK"
-          echo "=============================="
+          set -e
+
+          echo "========================================"
+          echo "TFLITE RECIPE DIRECTORY"
+          echo "========================================"
+
+          echo "$P4A_tflite_runtime_DIR"
+
+          ls -lah "$P4A_tflite_runtime_DIR"
+
+          echo
+          echo "========================================"
+          echo "BUILD APK"
+          echo "========================================"
 
           buildozer -v android debug
 
 
-      # =====================================================
-      # Show output
-      # =====================================================
+      # ====================================================
+      # List APK
+      # ====================================================
 
       - name: List APK
         if: always()
         run: |
 
-          echo "=============================="
+          echo "========================================"
           echo "APK OUTPUT"
-          echo "=============================="
+          echo "========================================"
 
-          find bin -type f -maxdepth 2 -print 2>/dev/null || true
+          if [ -d bin ]; then
+            find bin -maxdepth 2 -type f -print -exec ls -lh {} \;
+          else
+            echo "bin directory does not exist"
+          fi
 
 
-      # =====================================================
+      # ====================================================
       # Upload APK
-      # =====================================================
+      # ====================================================
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
+
         with:
+
           name: MohandOCR-APK
+
           path: bin/*.apk
+
           if-no-files-found: error

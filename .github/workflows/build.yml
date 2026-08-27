@@ -1,13 +1,11 @@
 name: Build Android APK
 
 on:
+  workflow_dispatch:
 
   push:
     branches:
       - main
-
-  workflow_dispatch:
-
 
 jobs:
 
@@ -23,7 +21,7 @@ jobs:
       # Checkout
       # =====================================================
 
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
 
@@ -33,97 +31,15 @@ jobs:
 
       - name: Setup Python
         uses: actions/setup-python@v5
-
         with:
           python-version: "3.11"
 
 
       # =====================================================
-      # Project verification
+      # System packages
       # =====================================================
 
-      - name: Verify project
-        shell: bash
-
-        run: |
-
-          set -eux
-
-          echo "================================"
-          echo "PROJECT"
-          echo "================================"
-
-          find . \
-            -maxdepth 4 \
-            -type f \
-            -not -path './.git/*' \
-            | sort
-
-          echo ""
-          echo "================================"
-          echo "MODEL"
-          echo "================================"
-
-          test -f assets/best.tflite
-
-          ls -lh assets/best.tflite
-
-          echo ""
-          echo "================================"
-          echo "RECIPE"
-          echo "================================"
-
-          test -f \
-            p4a-recipes/tflite-runtime/__init__.py
-
-
-      # =====================================================
-      # Download TFLite Runtime
-      # =====================================================
-
-      - name: Download TFLite Runtime ARM64
-        shell: bash
-
-        run: |
-
-          set -eux
-
-          mkdir -p \
-            p4a-recipes/tflite-runtime
-
-          curl \
-            -L \
-            --retry 5 \
-            --retry-delay 5 \
-            --retry-all-errors \
-            -o \
-            p4a-recipes/tflite-runtime/tflite-runtime-android-arm64-2.19.0.tgz \
-            https://github.com/DeNA/tflite-runtime-builder/releases/download/2.19.0/tflite-runtime-android-arm64-2.19.0.tgz
-
-          ls -lh \
-            p4a-recipes/tflite-runtime/tflite-runtime-android-arm64-2.19.0.tgz
-
-
-      # =====================================================
-      # Verify archive
-      # =====================================================
-
-      - name: Inspect TFLite archive
-        shell: bash
-
-        run: |
-
-          set -eux
-
-          tar -tzf \
-            p4a-recipes/tflite-runtime/tflite-runtime-android-arm64-2.19.0.tgz
-
-
-      # =====================================================
-      # Dependencies
-      # =====================================================
-
-      - name: Install system packages
+      - name: Install system dependencies
         run: |
 
           sudo apt-get update
@@ -134,82 +50,132 @@ jobs:
             unzip \
             openjdk-17-jdk \
             autoconf \
+            automake \
             libtool \
             pkg-config \
             zlib1g-dev \
             libncurses5-dev \
             libncursesw5-dev \
-            libtinfo6 \
+            libtinfo5 \
             cmake \
             libffi-dev \
             libssl-dev \
-            automake \
             build-essential \
             ccache
 
 
       # =====================================================
-      # Buildozer
+      # Python packages
       # =====================================================
 
       - name: Install Buildozer
         run: |
 
-          python -m pip install \
-            --upgrade \
-            pip \
-            setuptools \
-            wheel
+          python -m pip install --upgrade pip
 
           python -m pip install \
             buildozer==1.6.0 \
-            Cython==0.29.37
+            cython==0.29.37
 
 
       # =====================================================
-      # Versions
+      # Verify project
       # =====================================================
 
-      - name: Versions
+      - name: Verify project
         run: |
 
-          python --version
+          echo "=============================="
+          echo "PROJECT"
+          echo "=============================="
 
-          buildozer --version
+          find . -maxdepth 3 -type f | sort
 
-          java -version
+          echo
+          echo "=============================="
+          echo "TFLITE MODEL"
+          echo "=============================="
+
+          test -f assets/best.tflite
+
+          ls -lh assets/best.tflite
+
+          echo
+          echo "=============================="
+          echo "RECIPE"
+          echo "=============================="
+
+          test -f p4a-recipes/tflite-runtime/__init__.py
+
+          ls -lh p4a-recipes/tflite-runtime/__init__.py
+
+          echo
+          echo "Recipe:"
+          sed -n '1,240p' p4a-recipes/tflite-runtime/__init__.py
 
 
       # =====================================================
-      # Build
+      # Verify buildozer.spec
+      # =====================================================
+
+      - name: Verify Buildozer configuration
+        run: |
+
+          echo "=============================="
+          echo "BUILDOZER SPEC"
+          echo "=============================="
+
+          sed -n '1,240p' buildozer.spec
+
+
+      # =====================================================
+      # Cache Buildozer
+      # =====================================================
+
+      - name: Cache Buildozer
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: |
+            buildozer-${{ runner.os }}-${{ hashFiles(
+              'buildozer.spec',
+              'p4a-recipes/tflite-runtime/__init__.py'
+            ) }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+
+      # =====================================================
+      # Build APK
       # =====================================================
 
       - name: Build APK
+        env:
+          P4A_tflite_runtime_DIR: ${{ github.workspace }}/p4a-recipes/tflite-runtime
         run: |
 
-          buildozer \
-            -v \
-            android \
-            debug
+          echo "=============================="
+          echo "BUILDING APK"
+          echo "=============================="
+
+          buildozer -v android debug
 
 
       # =====================================================
-      # Find APK
+      # Show output
       # =====================================================
 
-      - name: Find APK
-        if: success()
-
+      - name: List APK
+        if: always()
         run: |
 
-          echo "================================"
-          echo "APK"
-          echo "================================"
+          echo "=============================="
+          echo "APK OUTPUT"
+          echo "=============================="
 
-          find bin \
-            -type f \
-            -name "*.apk" \
-            -exec ls -lh {} \;
+          find bin -type f -maxdepth 2 -print 2>/dev/null || true
 
 
       # =====================================================
@@ -218,13 +184,8 @@ jobs:
 
       - name: Upload APK
         if: success()
-
         uses: actions/upload-artifact@v4
-
         with:
-
           name: MohandOCR-APK
-
           path: bin/*.apk
-
           if-no-files-found: error

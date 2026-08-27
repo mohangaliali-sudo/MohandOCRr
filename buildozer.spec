@@ -39,9 +39,7 @@ requirements =
     pillow,
     numpy,
     opencv,
-    tflite-runtime,
     plyer
-
 
 # ============================================================
 # Android

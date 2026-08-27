@@ -28,10 +28,10 @@ try:
 except ImportError:
     try:
         from ai_edge_litert.interpreter import Interpreter
-    except ImportError:
+    except ImportError as exc:
         raise RuntimeError(
             "TFLite Interpreter is not available."
-        )
+        ) from exc
 class SanskritOCR:
 
     # ========================================================

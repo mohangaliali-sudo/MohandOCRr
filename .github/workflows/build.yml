@@ -2,11 +2,9 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
-
   push:
     branches:
       - main
-
 
 jobs:
 
@@ -14,31 +12,29 @@ jobs:
 
     runs-on: ubuntu-22.04
 
-    timeout-minutes: 180
-
     steps:
 
-      # ====================================================
-      # Checkout
-      # ====================================================
+      # =========================================================
+      # 1. CHECKOUT
+      # =========================================================
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
 
-      # ====================================================
-      # Python 3.11
-      # ====================================================
+      # =========================================================
+      # 2. PYTHON 3.11
+      # =========================================================
 
-      - name: Setup Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
 
-      # ====================================================
-      # System dependencies
-      # ====================================================
+      # =========================================================
+      # 3. SYSTEM DEPENDENCIES
+      # =========================================================
 
       - name: Install system dependencies
         run: |
@@ -49,8 +45,6 @@ jobs:
 
           sudo apt-get install -y \
             git \
-            curl \
-            wget \
             zip \
             unzip \
             openjdk-17-jdk \
@@ -61,17 +55,32 @@ jobs:
             zlib1g-dev \
             libncurses5-dev \
             libncursesw5-dev \
-            libtinfo5 \
+            libtinfo6 \
             cmake \
             libffi-dev \
             libssl-dev \
             build-essential \
-            ccache
+            ccache \
+            wget \
+            curl \
+            p7zip-full
 
 
-      # ====================================================
-      # Python packages
-      # ====================================================
+      # =========================================================
+      # 4. JAVA
+      # =========================================================
+
+      - name: Configure Java 17
+        run: |
+
+          echo "JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64" >> "$GITHUB_ENV"
+
+          echo "/usr/lib/jvm/temurin-17-jdk-amd64/bin" >> "$GITHUB_PATH"
+
+
+      # =========================================================
+      # 5. INSTALL BUILDOZER
+      # =========================================================
 
       - name: Install Buildozer
         run: |
@@ -84,13 +93,21 @@ jobs:
             buildozer==1.6.0 \
             Cython==0.29.37
 
+          echo ""
+          echo "========================================"
+          echo "VERSIONS"
+          echo "========================================"
 
-      # ====================================================
-      # Fix assets directory
-      # ====================================================
+          python --version
+          buildozer --version
+          cython --version
 
-      - name: Fix assets directory
-        shell: bash
+
+      # =========================================================
+      # 6. CHECK ASSETS
+      # =========================================================
+
+      - name: Check assets
         run: |
 
           set -e
@@ -99,33 +116,26 @@ jobs:
           echo "CHECKING ASSETS"
           echo "========================================"
 
-          mkdir -p assets/fonts
+          echo ""
+          echo "Model:"
+          test -f assets/best.tflite
+          ls -lh assets/best.tflite
 
-          # Move fonts if they were accidentally uploaded
-          # inside assets/assets/fonts
-
-          if [ -d "assets/assets/fonts" ]; then
-
-            echo "Found nested fonts directory."
-
-            cp -f \
-              assets/assets/fonts/*.ttf \
-              assets/fonts/ \
-              2>/dev/null || true
-
-          fi
-
-          echo
+          echo ""
           echo "Fonts:"
-          find assets/fonts -maxdepth 1 -type f -name "*.ttf" -print | sort
+
+          test -f assets/fonts/Cairo-Regular.ttf
+          test -f assets/fonts/NotoSansDevanagari-Regular.ttf
+          test -f assets/fonts/Roboto-Regular.ttf
+
+          ls -lh assets/fonts/*.ttf
 
 
-      # ====================================================
-      # Verify project
-      # ====================================================
+      # =========================================================
+      # 7. SHOW PROJECT FILES
+      # =========================================================
 
-      - name: Verify project
-        shell: bash
+      - name: Check project files
         run: |
 
           set -e
@@ -138,11 +148,18 @@ jobs:
             -maxdepth 5 \
             -type f \
             ! -path "./.git/*" \
-            ! -path "./.buildozer/*" \
             | sort
 
 
-          echo
+      # =========================================================
+      # 8. CHECK MODEL
+      # =========================================================
+
+      - name: Check TFLite model
+        run: |
+
+          set -e
+
           echo "========================================"
           echo "MODEL"
           echo "========================================"
@@ -151,74 +168,129 @@ jobs:
 
           ls -lh assets/best.tflite
 
+          SIZE=$(stat -c%s assets/best.tflite)
 
-          echo
+          echo "Model size: $SIZE bytes"
+
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "ERROR: best.tflite appears too small."
+            exit 1
+          fi
+
+          echo "TFLite model OK"
+
+
+      # =========================================================
+      # 9. CHECK CLASSES
+      # =========================================================
+
+      - name: Check classes
+        run: |
+
+          set -e
+
           echo "========================================"
           echo "CLASSES"
           echo "========================================"
 
           test -f classes.txt
 
+          echo ""
+          echo "Raw classes.txt:"
+          cat -n classes.txt
+
+          echo ""
+          echo "----------------------------------------"
+
           CLASS_COUNT=$(wc -l < classes.txt)
 
           echo "classes.txt lines: $CLASS_COUNT"
 
-          if [ "$CLASS_COUNT" -ne 46 ]; then
-            echo
-            echo "ERROR: classes.txt must contain exactly 46 classes."
-            echo "Expected class IDs: 0 through 45."
-            exit 1
-          fi
+          echo ""
+          echo "Expected:"
+          echo "46 classes"
+          echo "Class IDs: 0 through 45"
 
-          echo
-          echo "Classes:"
-          nl -ba classes.txt
+          echo ""
+          echo "----------------------------------------"
+          echo "CLASS INDEX TABLE"
+          echo "----------------------------------------"
+
+          python - <<'PY'
+
+          from pathlib import Path
+
+          path = Path("classes.txt")
+
+          # Read without automatically adding anything
+          text = path.read_text(
+              encoding="utf-8-sig"
+          )
+
+          # Remove only empty lines at the end
+          lines = text.splitlines()
+
+          print()
+
+          for index, name in enumerate(lines):
+
+              print(
+                  f"ID {index:02d} -> {name}"
+              )
+
+          print()
+          print(
+              f"TOTAL CLASSES = {len(lines)}"
+          )
+
+          if len(lines) != 46:
+
+              print()
+              print(
+                  "ERROR: classes.txt does not contain 46 classes."
+              )
+
+              print(
+                  "Expected class IDs: 0 through 45."
+              )
+
+              raise SystemExit(1)
+
+          print()
+          print(
+              "SUCCESS: classes.txt contains exactly 46 classes."
+          )
+
+          PY
 
 
-          echo
+      # =========================================================
+      # 10. CHECK PYTHON SYNTAX
+      # =========================================================
+
+      - name: Check Python syntax
+        run: |
+
+          set -e
+
           echo "========================================"
-          echo "FONTS"
+          echo "PYTHON SYNTAX"
           echo "========================================"
 
-          test -f assets/fonts/NotoSansDevanagari-Regular.ttf
+          python -m py_compile main.py
 
-          test -f assets/fonts/Cairo-Regular.ttf
-
-          test -f assets/fonts/Roboto-Regular.ttf
-
-          ls -lh assets/fonts/*.ttf
-
-
-          echo
-          echo "========================================"
-          echo "OCR PROCESSOR"
-          echo "========================================"
-
-          test -f ocr_processor.py
+          echo "main.py syntax OK"
 
           python -m py_compile ocr_processor.py
 
           echo "ocr_processor.py syntax OK"
 
 
-          echo
-          echo "========================================"
-          echo "MAIN"
-          echo "========================================"
+      # =========================================================
+      # 11. CHECK BUILDOZER SPEC
+      # =========================================================
 
-          test -f main.py
-
-          python -m py_compile main.py
-
-          echo "main.py syntax OK"
-
-
-      # ====================================================
-      # Buildozer configuration
-      # ====================================================
-
-      - name: Verify Buildozer configuration
-        shell: bash
+      - name: Check buildozer.spec
         run: |
 
           set -e
@@ -229,178 +301,247 @@ jobs:
 
           test -f buildozer.spec
 
-          sed -n '1,260p' buildozer.spec
+          cat buildozer.spec
 
 
-      # ====================================================
-      # Cache Buildozer
-      # ====================================================
+      # =========================================================
+      # 12. CHECK REQUIRED SPEC SETTINGS
+      # =========================================================
+
+      - name: Validate buildozer requirements
+        run: |
+
+          set -e
+
+          echo "========================================"
+          echo "VALIDATING REQUIREMENTS"
+          echo "========================================"
+
+          grep -E "^requirements" buildozer.spec || true
+
+          echo ""
+
+          grep -E "^source.include_exts" buildozer.spec || true
+
+          echo ""
+
+          grep -E "^android.archs" buildozer.spec || true
+
+          echo ""
+
+          grep -E "^android.api" buildozer.spec || true
+
+          echo ""
+
+          grep -E "^android.minapi" buildozer.spec || true
+
+
+      # =========================================================
+      # 13. CACHE BUILDOZER
+      # =========================================================
 
       - name: Cache Buildozer
         uses: actions/cache@v4
+
         with:
 
           path: |
-            ~/.buildozer
             .buildozer
+            ~/.buildozer
 
-          key: >
-            buildozer-${{ runner.os }}-${{
-              hashFiles(
-                'buildozer.spec',
-                'main.py',
-                'ocr_processor.py',
-                'classes.txt',
-                'assets/best.tflite'
-              )
-            }}
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
 
           restore-keys: |
-            buildozer-${{ runner.os }}-
+            ${{ runner.os }}-buildozer-
 
 
-      # ====================================================
-      # Prepare Buildozer directories
-      # ====================================================
+      # =========================================================
+      # 14. FREE TYPE TEST
+      # =========================================================
 
-      - name: Prepare Buildozer directories
-        shell: bash
+      - name: Test FreeType server
         run: |
 
-          set -e
+          set +e
 
-          mkdir -p \
-            .buildozer/android/platform/build-arm64-v8a/packages
-
-          echo "Buildozer directories prepared."
-
-
-      # ====================================================
-      # Download FreeType with retry
-      # ====================================================
-
-      - name: Download FreeType
-        shell: bash
-        run: |
-
-          set -e
-
-          FREETYPE_DIR="$GITHUB_WORKSPACE/.buildozer/android/platform/build-arm64-v8a/packages/freetype"
-
-          FREETYPE_FILE="$FREETYPE_DIR/freetype-2.14.1.tar.gz"
-
-          mkdir -p "$FREETYPE_DIR"
+          URL="https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz"
 
           echo "========================================"
-          echo "FREE TYPE"
+          echo "TEST FREETYPE DOWNLOAD"
           echo "========================================"
 
-          echo "Directory:"
-          echo "$FREETYPE_DIR"
+          echo ""
+          echo "$URL"
 
-          echo "File:"
-          echo "$FREETYPE_FILE"
+          SUCCESS=0
 
+          for i in 1 2 3 4 5 6 7 8 9 10
+          do
 
-          if [ -f "$FREETYPE_FILE" ]; then
-
-            echo "FreeType archive already exists."
-
-            ls -lh "$FREETYPE_FILE"
-
-          else
-
-            echo "Downloading FreeType..."
+            echo ""
+            echo "Attempt $i / 10"
 
             curl \
               --fail \
               --location \
-              --retry 15 \
+              --retry 3 \
               --retry-delay 5 \
-              --retry-max-time 300 \
               --connect-timeout 30 \
-              --max-time 600 \
-              --user-agent "Mozilla/5.0 GitHubActions" \
-              "https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz" \
-              --output "$FREETYPE_FILE"
+              --max-time 180 \
+              -o /tmp/freetype.tar.gz \
+              "$URL"
+
+            if [ $? -eq 0 ]; then
+
+              echo ""
+              echo "FreeType download successful."
+
+              ls -lh /tmp/freetype.tar.gz
+
+              SUCCESS=1
+
+              break
+
+            fi
+
+            echo ""
+            echo "Download failed."
+
+            sleep 10
+
+          done
+
+          if [ "$SUCCESS" -eq 0 ]; then
+
+            echo ""
+            echo "WARNING:"
+            echo "FreeType server could not be reached."
+            echo "python-for-android will try its own download."
 
           fi
 
-
-          test -s "$FREETYPE_FILE"
-
-          echo
-          echo "FreeType archive:"
-          ls -lh "$FREETYPE_FILE"
+          exit 0
 
 
-      # ====================================================
-      # Build APK
-      # ====================================================
+      # =========================================================
+      # 15. BUILD APK
+      # =========================================================
 
-      - name: Build APK
-        shell: bash
+      - name: Build Android APK
+        env:
+
+          P4A_DOWNLOAD_RETRIES: "10"
+
+          P4A_DOWNLOAD_TIMEOUT: "180"
+
         run: |
 
           set -e
 
           echo "========================================"
-          echo "BUILDING ANDROID APK"
+          echo "START BUILDOZER BUILD"
           echo "========================================"
 
+          echo ""
           echo "Python:"
           python --version
 
-          echo
+          echo ""
           echo "Buildozer:"
           buildozer --version
 
-          echo
-          echo "Starting Buildozer..."
+          echo ""
+          echo "Starting Android build..."
 
-          buildozer -v android debug
+          buildozer \
+            -v \
+            android \
+            debug
 
 
-      # ====================================================
-      # List output
-      # ====================================================
+      # =========================================================
+      # 16. SHOW APK
+      # =========================================================
 
-      - name: List APK
-        if: always()
-        shell: bash
+      - name: Find APK
+        if: success()
         run: |
 
+          set -e
+
           echo "========================================"
-          echo "APK OUTPUT"
+          echo "APK FILES"
           echo "========================================"
 
-          if [ -d "bin" ]; then
+          find bin \
+            -type f \
+            -name "*.apk" \
+            -print \
+            -exec ls -lh {} \;
 
-            find bin \
-              -maxdepth 2 \
-              -type f \
-              -name "*.apk" \
-              -print \
-              -exec ls -lh {} \;
 
-          else
+      # =========================================================
+      # 17. VERIFY APK EXISTS
+      # =========================================================
 
-            echo "bin directory does not exist."
+      - name: Verify APK
+        if: success()
+        run: |
+
+          set -e
+
+          APK_COUNT=$(find bin -type f -name "*.apk" | wc -l)
+
+          echo "APK count: $APK_COUNT"
+
+          if [ "$APK_COUNT" -eq 0 ]; then
+
+            echo ""
+            echo "ERROR: APK was not generated."
+
+            exit 1
 
           fi
 
+          echo ""
+          echo "APK generated successfully."
 
-      # ====================================================
-      # Upload APK
-      # ====================================================
+
+      # =========================================================
+      # 18. UPLOAD APK
+      # =========================================================
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
+
         with:
 
-          name: MohandOCR-APK
+          name: MohandSanskritOCR-APK
 
           path: bin/*.apk
 
           if-no-files-found: error
+
+          retention-days: 30
+
+
+      # =========================================================
+      # 19. UPLOAD BUILD LOGS
+      # =========================================================
+
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+
+        with:
+
+          name: MohandSanskritOCR-build-logs
+
+          path: |
+            .buildozer/
+            ~/.buildozer/
+
+          if-no-files-found: ignore
+
+          retention-days: 7

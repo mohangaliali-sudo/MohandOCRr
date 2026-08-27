@@ -4,7 +4,8 @@
 #
 # Kivy Android Application
 #
-# TFLite + 3 Fonts
+# TFLite Float32
+# Camera + Gallery
 # ============================================================
 
 import os
@@ -27,8 +28,7 @@ from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 
-from kivy.graphics import Color
-from kivy.graphics import RoundedRectangle
+from kivy.graphics import Color, RoundedRectangle
 
 from plyer import camera
 
@@ -43,24 +43,20 @@ BASE_DIR = os.path.dirname(
     os.path.abspath(__file__)
 )
 
-
 ASSETS_DIR = os.path.join(
     BASE_DIR,
     "assets"
 )
-
 
 FONTS_DIR = os.path.join(
     ASSETS_DIR,
     "fonts"
 )
 
-
 MODEL_PATH = os.path.join(
     ASSETS_DIR,
     "best.tflite"
 )
-
 
 CLASSES_PATH = os.path.join(
     BASE_DIR,
@@ -77,12 +73,10 @@ DEVANAGARI_FONT = os.path.join(
     "NotoSansDevanagari-Regular.ttf"
 )
 
-
 ARABIC_FONT = os.path.join(
     FONTS_DIR,
     "Cairo-Regular.ttf"
 )
-
 
 ROBOTO_FONT = os.path.join(
     FONTS_DIR,
@@ -122,7 +116,6 @@ class RoundedButton(Button):
         )
 
         self.background_normal = ""
-
         self.background_down = ""
 
         with self.canvas.before:
@@ -153,7 +146,6 @@ class RoundedButton(Button):
     ):
 
         self.bg.pos = self.pos
-
         self.bg.size = self.size
 
 
@@ -174,16 +166,10 @@ class SanskritOCRApp(App):
         )
 
         self.current_image_path = None
-
         self.current_image = None
 
         self.processing = False
-
         self.ocr = None
-
-        # ----------------------------------------------------
-        # ROOT
-        # ----------------------------------------------------
 
         root = BoxLayout(
             orientation="vertical",
@@ -249,7 +235,6 @@ class SanskritOCRApp(App):
             height=dp(55)
         )
 
-        # Camera
         camera_button = RoundedButton(
             text="الكاميرا",
             font_name=self._arabic_font(),
@@ -264,7 +249,6 @@ class SanskritOCRApp(App):
             camera_button
         )
 
-        # Gallery
         gallery_button = RoundedButton(
             text="المعرض",
             font_name=self._arabic_font(),
@@ -305,7 +289,7 @@ class SanskritOCRApp(App):
         )
 
         # ----------------------------------------------------
-        # TEXT TITLE
+        # RESULT TITLE
         # ----------------------------------------------------
 
         text_title = Label(
@@ -321,7 +305,7 @@ class SanskritOCRApp(App):
         )
 
         # ----------------------------------------------------
-        # RESULT TEXT
+        # RESULT
         # ----------------------------------------------------
 
         self.result_text = TextInput(
@@ -355,7 +339,6 @@ class SanskritOCRApp(App):
             height=dp(55)
         )
 
-        # Copy
         copy_button = RoundedButton(
             text="نسخ",
             font_name=self._arabic_font(),
@@ -370,7 +353,6 @@ class SanskritOCRApp(App):
             copy_button
         )
 
-        # Clear
         clear_button = RoundedButton(
             text="مسح",
             font_name=self._arabic_font(),
@@ -390,7 +372,7 @@ class SanskritOCRApp(App):
         )
 
         # ----------------------------------------------------
-        # INITIALIZE OCR
+        # OCR INITIALIZATION
         # ----------------------------------------------------
 
         Clock.schedule_once(
@@ -404,9 +386,7 @@ class SanskritOCRApp(App):
     # FONTS
     # ========================================================
 
-    def _devanagari_font(
-        self
-    ):
+    def _devanagari_font(self):
 
         if os.path.exists(
             DEVANAGARI_FONT
@@ -416,9 +396,7 @@ class SanskritOCRApp(App):
 
         return "Roboto"
 
-    def _arabic_font(
-        self
-    ):
+    def _arabic_font(self):
 
         if os.path.exists(
             ARABIC_FONT
@@ -428,9 +406,7 @@ class SanskritOCRApp(App):
 
         return "Roboto"
 
-    def _english_font(
-        self
-    ):
+    def _english_font(self):
 
         if os.path.exists(
             ROBOTO_FONT
@@ -444,9 +420,7 @@ class SanskritOCRApp(App):
     # CHECK FILES
     # ========================================================
 
-    def check_files(
-        self
-    ):
+    def check_files(self):
 
         missing = []
 
@@ -484,13 +458,9 @@ class SanskritOCRApp(App):
 
         for path, name in required_files:
 
-            if not os.path.exists(
-                path
-            ):
+            if not os.path.exists(path):
 
-                missing.append(
-                    name
-                )
+                missing.append(name)
 
         return missing
 
@@ -511,9 +481,7 @@ class SanskritOCRApp(App):
 
             try:
 
-                missing = (
-                    self.check_files()
-                )
+                missing = self.check_files()
 
                 if missing:
 
@@ -538,6 +506,7 @@ class SanskritOCRApp(App):
                     iou_threshold=0.45,
 
                     line_threshold_ratio=0.50
+
                 )
 
                 Clock.schedule_once(
@@ -608,9 +577,6 @@ class SanskritOCRApp(App):
         self,
         *args
     ):
-
-        if self.processing:
-            return
 
         self.status_label.text = (
             "فتح الكاميرا..."
@@ -728,9 +694,7 @@ class SanskritOCRApp(App):
             *args
         ):
 
-            selection = (
-                chooser.selection
-            )
+            selection = chooser.selection
 
             if not selection:
                 return
@@ -789,21 +753,13 @@ class SanskritOCRApp(App):
 
             return
 
-        self.current_image_path = (
-            filename
-        )
+        self.current_image_path = filename
 
         self.current_image = image
 
-        self.image_widget.source = (
-            filename
-        )
+        self.image_widget.source = filename
 
         self.image_widget.reload()
-
-        self.ocr_button.disabled = (
-            self.ocr is None
-        )
 
         self.status_label.text = (
             "تم اختيار الصورة"
@@ -886,7 +842,7 @@ class SanskritOCRApp(App):
         ).start()
 
     # ========================================================
-    # OCR RESULT
+    # RESULT
     # ========================================================
 
     def show_ocr_result(
@@ -952,10 +908,11 @@ class SanskritOCRApp(App):
                 self.image_widget.reload()
 
             except Exception:
+
                 pass
 
     # ========================================================
-    # OCR FAILED
+    # FAILED
     # ========================================================
 
     def ocr_failed(
@@ -1049,10 +1006,6 @@ class SanskritOCRApp(App):
             text=str(message),
             font_name=self._english_font(),
             font_size=dp(14),
-            text_size=(
-                None,
-                None
-            ),
             size_hint_y=None,
             halign="left",
             valign="top"

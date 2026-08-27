@@ -10,11 +10,25 @@ source.dir = .
 
 source.include_exts = py,png,jpg,jpeg,kv,atlas,tflite,ttf,txt
 
-source.include_patterns = assets/*.tflite,assets/fonts/*.ttf,classes.txt
+source.include_patterns =
+    assets/*.tflite,
+    assets/fonts/*.ttf,
+    classes.txt
 
 version = 1.0
 
-requirements = python3,kivy==2.3.1,pillow,numpy,opencv,tflite-runtime,plyer
+# ============================================================
+# PYTHON / KIVY / TFLITE
+# ============================================================
+
+requirements =
+    python3,
+    kivy==2.3.1,
+    pillow,
+    numpy,
+    opencv,
+    tflite-runtime,
+    plyer
 
 orientation = portrait
 
@@ -42,7 +56,10 @@ android.private_storage = True
 # PERMISSIONS
 # ============================================================
 
-android.permissions = CAMERA,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
+android.permissions =
+    CAMERA,
+    READ_EXTERNAL_STORAGE,
+    WRITE_EXTERNAL_STORAGE
 
 
 # ============================================================

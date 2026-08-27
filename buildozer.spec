@@ -27,10 +27,14 @@ fullscreen = 0
 # ============================================================
 # ANDROID
 # ============================================================
-
+# (int) Target Android API
 android.api = 33
 
+# (int) Minimum API your APK will support
 android.minapi = 24
+
+# (string) Android NDK version to use
+android.ndk = 25b
 
 android.archs = arm64-v8a
 

@@ -14,7 +14,7 @@ jobs:
 
     runs-on: ubuntu-22.04
 
-    timeout-minutes: 120
+    timeout-minutes: 180
 
     steps:
 
@@ -27,7 +27,7 @@ jobs:
 
 
       # ====================================================
-      # Python
+      # Python 3.11
       # ====================================================
 
       - name: Setup Python
@@ -43,10 +43,14 @@ jobs:
       - name: Install system dependencies
         run: |
 
+          set -e
+
           sudo apt-get update
 
           sudo apt-get install -y \
             git \
+            curl \
+            wget \
             zip \
             unzip \
             openjdk-17-jdk \
@@ -72,11 +76,48 @@ jobs:
       - name: Install Buildozer
         run: |
 
+          set -e
+
           python -m pip install --upgrade pip
 
           python -m pip install \
             buildozer==1.6.0 \
-            cython==0.29.37
+            Cython==0.29.37
+
+
+      # ====================================================
+      # Fix assets directory
+      # ====================================================
+
+      - name: Fix assets directory
+        shell: bash
+        run: |
+
+          set -e
+
+          echo "========================================"
+          echo "CHECKING ASSETS"
+          echo "========================================"
+
+          mkdir -p assets/fonts
+
+          # Move fonts if they were accidentally uploaded
+          # inside assets/assets/fonts
+
+          if [ -d "assets/assets/fonts" ]; then
+
+            echo "Found nested fonts directory."
+
+            cp -f \
+              assets/assets/fonts/*.ttf \
+              assets/fonts/ \
+              2>/dev/null || true
+
+          fi
+
+          echo
+          echo "Fonts:"
+          find assets/fonts -maxdepth 1 -type f -name "*.ttf" -print | sort
 
 
       # ====================================================
@@ -84,6 +125,7 @@ jobs:
       # ====================================================
 
       - name: Verify project
+        shell: bash
         run: |
 
           set -e
@@ -92,7 +134,12 @@ jobs:
           echo "PROJECT FILES"
           echo "========================================"
 
-          find . -maxdepth 4 -type f | sort
+          find . \
+            -maxdepth 5 \
+            -type f \
+            ! -path "./.git/*" \
+            ! -path "./.buildozer/*" \
+            | sort
 
 
           echo
@@ -112,14 +159,34 @@ jobs:
 
           test -f classes.txt
 
-          CLASS_COUNT=$(grep -cve '^[[:space:]]*$' classes.txt)
+          CLASS_COUNT=$(wc -l < classes.txt)
 
-          echo "Classes: $CLASS_COUNT"
+          echo "classes.txt lines: $CLASS_COUNT"
 
           if [ "$CLASS_COUNT" -ne 46 ]; then
-            echo "ERROR: Expected 46 classes, found $CLASS_COUNT"
+            echo
+            echo "ERROR: classes.txt must contain exactly 46 classes."
+            echo "Expected class IDs: 0 through 45."
             exit 1
           fi
+
+          echo
+          echo "Classes:"
+          nl -ba classes.txt
+
+
+          echo
+          echo "========================================"
+          echo "FONTS"
+          echo "========================================"
+
+          test -f assets/fonts/NotoSansDevanagari-Regular.ttf
+
+          test -f assets/fonts/Cairo-Regular.ttf
+
+          test -f assets/fonts/Roboto-Regular.ttf
+
+          ls -lh assets/fonts/*.ttf
 
 
           echo
@@ -146,32 +213,27 @@ jobs:
           echo "main.py syntax OK"
 
 
-          echo
-          echo "========================================"
-          echo "BUILD SPEC"
-          echo "========================================"
-
-          test -f buildozer.spec
-
-          echo "buildozer.spec found"
-
-
       # ====================================================
-      # Verify Buildozer configuration
+      # Buildozer configuration
       # ====================================================
 
       - name: Verify Buildozer configuration
+        shell: bash
         run: |
+
+          set -e
 
           echo "========================================"
           echo "BUILDOZER SPEC"
           echo "========================================"
 
-          sed -n '1,240p' buildozer.spec
+          test -f buildozer.spec
+
+          sed -n '1,260p' buildozer.spec
 
 
       # ====================================================
-      # Cache
+      # Cache Buildozer
       # ====================================================
 
       - name: Cache Buildozer
@@ -182,16 +244,94 @@ jobs:
             ~/.buildozer
             .buildozer
 
-          key: |
-            buildozer-${{ runner.os }}-${{ hashFiles(
-              'buildozer.spec',
-              'ocr_processor.py',
-              'main.py',
-              'classes.txt'
-            ) }}
+          key: >
+            buildozer-${{ runner.os }}-${{
+              hashFiles(
+                'buildozer.spec',
+                'main.py',
+                'ocr_processor.py',
+                'classes.txt',
+                'assets/best.tflite'
+              )
+            }}
 
           restore-keys: |
             buildozer-${{ runner.os }}-
+
+
+      # ====================================================
+      # Prepare Buildozer directories
+      # ====================================================
+
+      - name: Prepare Buildozer directories
+        shell: bash
+        run: |
+
+          set -e
+
+          mkdir -p \
+            .buildozer/android/platform/build-arm64-v8a/packages
+
+          echo "Buildozer directories prepared."
+
+
+      # ====================================================
+      # Download FreeType with retry
+      # ====================================================
+
+      - name: Download FreeType
+        shell: bash
+        run: |
+
+          set -e
+
+          FREETYPE_DIR="$GITHUB_WORKSPACE/.buildozer/android/platform/build-arm64-v8a/packages/freetype"
+
+          FREETYPE_FILE="$FREETYPE_DIR/freetype-2.14.1.tar.gz"
+
+          mkdir -p "$FREETYPE_DIR"
+
+          echo "========================================"
+          echo "FREE TYPE"
+          echo "========================================"
+
+          echo "Directory:"
+          echo "$FREETYPE_DIR"
+
+          echo "File:"
+          echo "$FREETYPE_FILE"
+
+
+          if [ -f "$FREETYPE_FILE" ]; then
+
+            echo "FreeType archive already exists."
+
+            ls -lh "$FREETYPE_FILE"
+
+          else
+
+            echo "Downloading FreeType..."
+
+            curl \
+              --fail \
+              --location \
+              --retry 15 \
+              --retry-delay 5 \
+              --retry-max-time 300 \
+              --connect-timeout 30 \
+              --max-time 600 \
+              --user-agent "Mozilla/5.0 GitHubActions" \
+              "https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz" \
+              --output "$FREETYPE_FILE"
+
+          fi
+
+
+          test -s "$FREETYPE_FILE"
+
+          echo
+          echo "FreeType archive:"
+          ls -lh "$FREETYPE_FILE"
 
 
       # ====================================================
@@ -199,40 +339,53 @@ jobs:
       # ====================================================
 
       - name: Build APK
+        shell: bash
         run: |
 
           set -e
 
           echo "========================================"
-          echo "BUILD APK"
+          echo "BUILDING ANDROID APK"
           echo "========================================"
+
+          echo "Python:"
+          python --version
+
+          echo
+          echo "Buildozer:"
+          buildozer --version
+
+          echo
+          echo "Starting Buildozer..."
 
           buildozer -v android debug
 
 
       # ====================================================
-      # List APK
+      # List output
       # ====================================================
 
       - name: List APK
         if: always()
+        shell: bash
         run: |
 
           echo "========================================"
           echo "APK OUTPUT"
           echo "========================================"
 
-          if [ -d bin ]; then
+          if [ -d "bin" ]; then
 
             find bin \
               -maxdepth 2 \
               -type f \
+              -name "*.apk" \
               -print \
               -exec ls -lh {} \;
 
           else
 
-            echo "bin directory does not exist"
+            echo "bin directory does not exist."
 
           fi
 
@@ -244,7 +397,6 @@ jobs:
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
-
         with:
 
           name: MohandOCR-APK

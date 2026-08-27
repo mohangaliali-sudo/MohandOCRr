@@ -3,6 +3,7 @@
 title = Mohand Sanskrit OCR
 
 package.name = mohandsanskritocr
+
 package.domain = org.mohand
 
 source.dir = .
@@ -26,25 +27,26 @@ source.include_patterns =
 version = 1.0.0
 
 orientation = portrait
+
 fullscreen = 0
 
 
 # ============================================================
-# REQUIREMENTS
+# Python requirements
 # ============================================================
 
 requirements =
-    python3==3.11.9,
+    python3,
     kivy==2.3.1,
     numpy,
     pillow,
     opencv,
     plyer,
-    tflite-runtime
+    ai-edge-litert
 
 
 # ============================================================
-# ANDROID
+# Android
 # ============================================================
 
 android.api = 33
@@ -61,7 +63,7 @@ android.private_storage = True
 
 
 # ============================================================
-# PERMISSIONS
+# Permissions
 # ============================================================
 
 android.permissions =
@@ -70,14 +72,14 @@ android.permissions =
 
 
 # ============================================================
-# ENTRY POINT
+# Entry point
 # ============================================================
 
 android.entrypoint = org.kivy.android.PythonActivity
 
 
 # ============================================================
-# LOGGING
+# Logging
 # ============================================================
 
 log_level = 2

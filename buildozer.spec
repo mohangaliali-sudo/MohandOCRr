@@ -1,5 +1,9 @@
 [app]
 
+# ============================================================
+# Basic
+# ============================================================
+
 title = Mohand Sanskrit OCR
 
 package.name = mohandsanskritocr
@@ -8,17 +12,32 @@ package.domain = org.mohand
 
 source.dir = .
 
-source.include_exts = py,png,jpg,jpeg,kv,atlas,tflite,ttf,txt
+version = 1.0.0
 
-source.include_patterns =
-    assets/*.tflite,
-    assets/fonts/*.ttf,
-    classes.txt
-
-version = 1.0
 
 # ============================================================
-# PYTHON / KIVY / TFLITE
+# Files
+# ============================================================
+
+source.include_exts =
+    py,
+    txt,
+    tflite,
+    jpg,
+    jpeg,
+    png,
+    kv,
+    atlas,
+    ttf
+
+
+source.include_patterns =
+    assets/*,
+    assets/fonts/*
+
+
+# ============================================================
+# Requirements
 # ============================================================
 
 requirements =
@@ -30,14 +49,16 @@ requirements =
     tflite-runtime,
     plyer
 
+
+# ============================================================
+# Android
+# ============================================================
+
 orientation = portrait
 
 fullscreen = 0
 
-
-# ============================================================
-# ANDROID
-# ============================================================
+android.archs = arm64-v8a
 
 android.api = 33
 
@@ -45,33 +66,40 @@ android.minapi = 24
 
 android.ndk = 25b
 
-android.archs = arm64-v8a
-
 android.accept_sdk_license = True
-
-android.private_storage = True
 
 
 # ============================================================
-# PERMISSIONS
+# Permissions
 # ============================================================
 
 android.permissions =
     CAMERA,
-    READ_EXTERNAL_STORAGE,
-    WRITE_EXTERNAL_STORAGE
+    READ_MEDIA_IMAGES
 
 
 # ============================================================
-# PYTHON-FOR-ANDROID LOCAL RECIPES
+# Python-for-Android
 # ============================================================
+
+p4a.bootstrap = sdl2
 
 p4a.local_recipes = ./p4a-recipes
 
 
 # ============================================================
-# BUILD
+# AndroidX
 # ============================================================
+
+android.enable_androidx = True
+
+
+# ============================================================
+# Logging
+# ============================================================
+
+log_level = 2
+
 
 [buildozer]
 

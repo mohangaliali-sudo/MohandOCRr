@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # يتيح لك تشغيل البناء يدوياً من صفحة Actions
+  workflow_dispatch:
 
 jobs:
   build:
@@ -41,9 +41,12 @@ jobs:
         pip install --upgrade pip setuptools
         pip install buildozer cython packaging
 
+    - name: Clean previous builds (Safe)
+      run: |
+        rm -rf .buildozer/
+
     - name: Build with Buildozer
       run: |
-        buildozer android clean
         buildozer -v android debug
 
     - name: Upload APK Artifact

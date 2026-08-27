@@ -18,7 +18,7 @@ version = 1.0
 # PYTHON / KIVY / TFLITE
 # ============================================================
 
-requirements = python3,kivy==2.3.1,pillow,numpy==1.26.4,plyer,hostpython3
+requirements = python3,kivy==2.3.1,pillow,numpy,plyer,hostpython3
 
 orientation = portrait
 

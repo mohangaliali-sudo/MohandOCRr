@@ -1,54 +1,41 @@
 name: Build Android APK
 
 on:
-
   push:
     branches:
       - main
 
   workflow_dispatch:
 
-
 jobs:
 
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
 
-      # =====================================================
+      # ======================================================
       # CHECKOUT
-      # =====================================================
+      # ======================================================
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
 
-      # =====================================================
+      # ======================================================
       # PYTHON
-      # =====================================================
+      # ======================================================
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
 
-      # =====================================================
-      # JAVA
-      # =====================================================
-
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
-
-      # =====================================================
-      # LINUX DEPENDENCIES
-      # =====================================================
+      # ======================================================
+      # SYSTEM DEPENDENCIES
+      # ======================================================
 
       - name: Install system dependencies
         run: |
@@ -59,124 +46,114 @@ jobs:
             git \
             zip \
             unzip \
+            openjdk-17-jdk \
+            build-essential \
+            ccache \
             autoconf \
             automake \
-            autopoint \
             libtool \
             libltdl-dev \
             pkg-config \
             gettext \
+            autopoint \
             texinfo \
             cmake \
-            ccache \
-            build-essential \
             libffi-dev \
             libssl-dev \
             zlib1g-dev \
             libncurses5-dev \
-            libncursesw5-dev \
-            libtinfo6 \
-            lbzip2 \
-            patch \
-            wget
+            libncursesw5-dev
 
 
-      # =====================================================
+      # ======================================================
       # PYTHON PACKAGES
-      # =====================================================
+      # ======================================================
 
-      - name: Install Buildozer
+      - name: Install Python packages
         run: |
 
-          python -m pip install \
-            --upgrade \
-            pip \
-            setuptools \
-            wheel
+          python -m pip install --upgrade pip
 
           python -m pip install \
-            buildozer==1.6.0 \
+            "setuptools<81" \
+            wheel \
             packaging
 
-
-      # =====================================================
-      # INSTALL MODERN PYTHON-FOR-ANDROID
-      # =====================================================
-
-      - name: Install python-for-android
-        run: |
+          python -m pip install \
+            "Cython==0.29.37"
 
           python -m pip install \
-            "python-for-android @ git+https://github.com/kivy/python-for-android.git@develop"
+            "buildozer==1.6.0"
 
 
-      # =====================================================
-      # VERSION CHECK
-      # =====================================================
-
-      - name: Show versions
-        run: |
-
-          echo "=============================="
-          echo "Python"
-          python --version
-
-          echo "=============================="
-          echo "Buildozer"
-          buildozer --version
-
-          echo "=============================="
-          echo "Java"
-          java -version
-
-          echo "=============================="
-          echo "P4A"
-          p4a --version || true
-
-
-      # =====================================================
+      # ======================================================
       # VERIFY PROJECT
-      # =====================================================
+      # ======================================================
 
       - name: Verify project files
         run: |
 
           echo "=============================="
-          echo "Project"
+          echo "PROJECT"
           echo "=============================="
 
-          find . \
-            -maxdepth 4 \
-            -type f \
-            | sort
+          find . -maxdepth 4 -type f | sort
 
+          echo ""
           echo "=============================="
-          echo "TFLite model"
+          echo "TFLITE MODEL"
           echo "=============================="
 
-          ls -lh \
-            assets/best.tflite
+          if [ ! -f "assets/best.tflite" ]; then
+            echo "ERROR: assets/best.tflite not found"
+            exit 1
+          fi
 
-          echo "=============================="
-          echo "Classes"
-          echo "=============================="
+          ls -lh assets/best.tflite
 
-          ls -lh \
-            classes.txt
-
+          echo ""
           echo "=============================="
-          echo "Recipe"
+          echo "CLASSES"
           echo "=============================="
 
-          find p4a-recipes \
-            -maxdepth 3 \
-            -type f \
-            | sort
+          if [ ! -f "classes.txt" ]; then
+            echo "ERROR: classes.txt not found"
+            exit 1
+          fi
+
+          wc -l classes.txt
+
+          echo ""
+          echo "=============================="
+          echo "FONTS"
+          echo "=============================="
+
+          find assets/fonts -type f -name "*.ttf" -print
 
 
-      # =====================================================
-      # CLEAN
-      # =====================================================
+      # ======================================================
+      # VERIFY RECIPE
+      # ======================================================
+
+      - name: Verify TFLite recipe
+        run: |
+
+          echo "=============================="
+          echo "P4A LOCAL RECIPE"
+          echo "=============================="
+
+          if [ ! -f "p4a-recipes/tflite-runtime/recipe.py" ]; then
+            echo "ERROR: tflite-runtime recipe not found"
+            exit 1
+          fi
+
+          sed -n '1,240p' \
+            p4a-recipes/tflite-runtime/recipe.py
+
+
+      # ======================================================
+      # CLEAN BUILD
+      # ======================================================
 
       - name: Clean Buildozer
         run: |
@@ -186,41 +163,43 @@ jobs:
           rm -rf ~/.buildozer
 
 
-      # =====================================================
-      # BUILD
-      # =====================================================
+      # ======================================================
+      # BUILD APK
+      # ======================================================
 
-      - name: Build Android APK
+      - name: Build APK
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
         run: |
 
           buildozer -v android debug
 
 
-      # =====================================================
-      # LIST APK
-      # =====================================================
+      # ======================================================
+      # SHOW APK
+      # ======================================================
 
-      - name: Show generated APK
+      - name: Show APK
+        if: always()
         run: |
 
           echo "=============================="
-          echo "Generated APK"
+          echo "BIN DIRECTORY"
           echo "=============================="
 
-          ls -lah bin/
+          ls -lah bin/ || true
 
 
-      # =====================================================
+      # ======================================================
       # UPLOAD APK
-      # =====================================================
+      # ======================================================
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
 
         with:
-
           name: MohandOCR-APK
-
           path: bin/*.apk
-
           if-no-files-found: error

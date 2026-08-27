@@ -1,7 +1,9 @@
 [app]
 
 title = Mohand Sanskrit OCR
+
 package.name = mohandsanskritocr
+
 package.domain = org.mohand
 
 source.dir = .
@@ -41,11 +43,13 @@ requirements =
     opencv,
     plyer
 
+
 # ============================================================
 # Android
 # ============================================================
 
 android.api = 33
+
 android.minapi = 24
 
 android.archs = arm64-v8a

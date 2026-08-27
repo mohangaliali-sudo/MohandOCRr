@@ -5,16 +5,21 @@
 # TFLite YOLO OCR Engine
 #
 # Model:
-#   assets/best.tflite
+#     best.tflite
 #
 # Input:
-#   [1, 3, 640, 640]
+#     [1, 3, 640, 640]
+#     float32
 #
 # Output:
-#   [1, 50, 8400]
+#     [1, 50, 8400]
+#     float32
 #
 # Classes:
-#   46
+#     46
+#
+# Android:
+#     tflite-runtime
 #
 # CPU inference
 # ============================================================
@@ -26,80 +31,25 @@ import numpy as np
 
 
 # ============================================================
-# TFLITE INTERPRETER
+# TFLITE IMPORT
 # ============================================================
 
-Interpreter = None
-
-
-# Try LiteRT first
 try:
-
-    from ai_edge_litert.interpreter import Interpreter
-
-    print("Using ai_edge_litert")
+    from tflite_runtime.interpreter import Interpreter
 
 except ImportError:
 
-    pass
-
-
-# Try tflite-runtime
-if Interpreter is None:
-
     try:
-
-        from tflite_runtime.interpreter import Interpreter
-
-        print("Using tflite_runtime")
+        from ai_edge_litert.interpreter import Interpreter
 
     except ImportError:
 
-        pass
+        try:
+            from tensorflow.lite.python.interpreter import Interpreter
 
+        except ImportError:
 
-# Try TensorFlow as last fallback
-if Interpreter is None:
-
-    try:
-
-        from tensorflow.lite.python.interpreter import Interpreter
-
-        print("Using TensorFlow Lite")
-
-    except ImportError:
-
-        pass
-
-
-if Interpreter is None:
-
-    raise ImportError(
-        "No TFLite interpreter available. "
-        "Install ai-edge-litert or tflite-runtime."
-    )
-
-
-# ============================================================
-# BASE DIRECTORY
-# ============================================================
-
-BASE_DIR = os.path.dirname(
-    os.path.abspath(__file__)
-)
-
-
-DEFAULT_MODEL_PATH = os.path.join(
-    BASE_DIR,
-    "assets",
-    "best.tflite"
-)
-
-
-DEFAULT_CLASSES_PATH = os.path.join(
-    BASE_DIR,
-    "classes.txt"
-)
+            Interpreter = None
 
 
 # ============================================================
@@ -114,21 +64,25 @@ class SanskritOCR:
 
     def __init__(
         self,
-        model_path=DEFAULT_MODEL_PATH,
-        classes_path=DEFAULT_CLASSES_PATH,
+        model_path="best.tflite",
+        classes_path="classes.txt",
         img_size=640,
         conf_threshold=0.15,
         iou_threshold=0.45,
         line_threshold_ratio=0.50
     ):
 
-        self.model_path = model_path
+        if Interpreter is None:
 
+            raise ImportError(
+                "TFLite Interpreter غير متوفر.\n"
+                "ثبّت tflite-runtime."
+            )
+
+        self.model_path = model_path
         self.classes_path = classes_path
 
-        self.img_size = int(
-            img_size
-        )
+        self.img_size = int(img_size)
 
         self.conf_threshold = float(
             conf_threshold
@@ -143,44 +97,39 @@ class SanskritOCR:
         )
 
         # ----------------------------------------------------
-        # Load classes
+        # LOAD CLASSES
         # ----------------------------------------------------
 
         self.classes = self._load_classes(
-            self.classes_path
+            classes_path
         )
 
         # ----------------------------------------------------
-        # Validate classes
+        # VALIDATE CLASSES
         # ----------------------------------------------------
 
         if len(self.classes) != 46:
 
             raise RuntimeError(
-                "Invalid number of classes.\n"
-                f"Expected: 46\n"
-                f"Found: {len(self.classes)}"
+                f"عدد classes = {len(self.classes)} "
+                f"لكن المتوقع 46."
             )
 
         # ----------------------------------------------------
-        # Load model
+        # LOAD MODEL
         # ----------------------------------------------------
 
         self.interpreter = self._load_model(
-            self.model_path
+            model_path
         )
 
         # ----------------------------------------------------
-        # Input details
+        # DETAILS
         # ----------------------------------------------------
 
         self.input_details = (
             self.interpreter.get_input_details()
         )
-
-        # ----------------------------------------------------
-        # Output details
-        # ----------------------------------------------------
 
         self.output_details = (
             self.interpreter.get_output_details()
@@ -189,70 +138,50 @@ class SanskritOCR:
         if not self.input_details:
 
             raise RuntimeError(
-                "TFLite model has no input."
+                "TFLite model لا يحتوي على Input."
             )
 
         if not self.output_details:
 
             raise RuntimeError(
-                "TFLite model has no output."
+                "TFLite model لا يحتوي على Output."
             )
-
-        # ----------------------------------------------------
-        # Input
-        # ----------------------------------------------------
 
         self.input_index = (
             self.input_details[0]["index"]
+        )
+
+        self.output_index = (
+            self.output_details[0]["index"]
         )
 
         self.input_shape = tuple(
             self.input_details[0]["shape"]
         )
 
-        self.input_dtype = (
-            self.input_details[0]["dtype"]
-        )
-
-        self.input_quantization = (
-            self.input_details[0].get(
-                "quantization",
-                (0.0, 0)
-            )
-        )
-
-        # ----------------------------------------------------
-        # Output
-        # ----------------------------------------------------
-
-        self.output_index = (
-            self.output_details[0]["index"]
-        )
-
         self.output_shape = tuple(
             self.output_details[0]["shape"]
+        )
+
+        self.input_dtype = (
+            self.input_details[0]["dtype"]
         )
 
         self.output_dtype = (
             self.output_details[0]["dtype"]
         )
 
-        self.output_quantization = (
-            self.output_details[0].get(
-                "quantization",
-                (0.0, 0)
-            )
+        print(
+            "========================================"
         )
 
-        # ----------------------------------------------------
-        # Print information
-        # ----------------------------------------------------
+        print(
+            "Mohand Sanskrit OCR - TFLite"
+        )
 
-        print()
-        print("========================================")
-        print("Mohand Sanskrit OCR")
-        print("TFLite / LiteRT")
-        print("========================================")
+        print(
+            "========================================"
+        )
 
         print(
             "Model:",
@@ -285,19 +214,11 @@ class SanskritOCR:
         )
 
         print(
-            "Input quantization:",
-            self.input_quantization
+            "========================================"
         )
-
-        print(
-            "Output quantization:",
-            self.output_quantization
-        )
-
-        print("========================================")
 
         # ----------------------------------------------------
-        # Validate input
+        # VALIDATE INPUT
         # ----------------------------------------------------
 
         expected_input = (
@@ -310,13 +231,13 @@ class SanskritOCR:
         if self.input_shape != expected_input:
 
             raise RuntimeError(
-                "Invalid TFLite input shape.\n"
-                f"Expected: {expected_input}\n"
-                f"Found: {self.input_shape}"
+                "Input غير مطابق.\n"
+                f"المتوقع: {expected_input}\n"
+                f"الحالي: {self.input_shape}"
             )
 
         # ----------------------------------------------------
-        # Validate output
+        # VALIDATE OUTPUT
         # ----------------------------------------------------
 
         expected_output = (
@@ -328,34 +249,52 @@ class SanskritOCR:
         if self.output_shape != expected_output:
 
             raise RuntimeError(
-                "Invalid TFLite output shape.\n"
-                f"Expected: {expected_output}\n"
-                f"Found: {self.output_shape}"
+                "Output غير مطابق.\n"
+                f"المتوقع: {expected_output}\n"
+                f"الحالي: {self.output_shape}"
+            )
+
+        # ----------------------------------------------------
+        # VALIDATE FLOAT32
+        # ----------------------------------------------------
+
+        if self.input_dtype != np.float32:
+
+            raise RuntimeError(
+                "النموذج يجب أن يكون Input Float32."
+            )
+
+        if self.output_dtype != np.float32:
+
+            raise RuntimeError(
+                "النموذج يجب أن يكون Output Float32."
             )
 
         print(
-            "Input OK: [1,3,640,640]"
+            "Input:  [1,3,640,640] FLOAT32"
         )
 
         print(
-            "Output OK: [1,50,8400]"
+            "Output: [1,50,8400] FLOAT32"
         )
 
         print(
-            "Classes OK: 46"
+            "Classes: 46"
         )
 
-        print("========================================")
-        print()
+        print(
+            "TFLite model validation OK."
+        )
+
+        print(
+            "========================================"
+        )
 
     # ========================================================
     # LOAD CLASSES
     # ========================================================
 
-    def _load_classes(
-        self,
-        path
-    ):
+    def _load_classes(self, path):
 
         if not os.path.exists(path):
 
@@ -379,11 +318,13 @@ class SanskritOCR:
                 if not name:
                     continue
 
-                # Support:
+                # Supports:
+                # ङ
+                # च
                 #
+                # and:
                 # 0: ङ
                 # 1: च
-                #
 
                 if ":" in name:
 
@@ -396,9 +337,7 @@ class SanskritOCR:
 
                         name = right.strip()
 
-                classes.append(
-                    name
-                )
+                classes.append(name)
 
         return classes
 
@@ -406,10 +345,7 @@ class SanskritOCR:
     # LOAD MODEL
     # ========================================================
 
-    def _load_model(
-        self,
-        path
-    ):
+    def _load_model(self, path):
 
         if not os.path.exists(path):
 
@@ -417,10 +353,6 @@ class SanskritOCR:
                 "TFLite model not found:\n"
                 + path
             )
-
-        print(
-            "Loading TFLite model..."
-        )
 
         try:
 
@@ -437,20 +369,13 @@ class SanskritOCR:
 
         interpreter.allocate_tensors()
 
-        print(
-            "TFLite model loaded."
-        )
-
         return interpreter
 
     # ========================================================
     # LETTERBOX
     # ========================================================
 
-    def _letterbox(
-        self,
-        image
-    ):
+    def _letterbox(self, image):
 
         original_h, original_w = (
             image.shape[:2]
@@ -473,28 +398,18 @@ class SanskritOCR:
 
         resized = cv2.resize(
             image,
-            (
-                new_w,
-                new_h
-            ),
+            (new_w, new_h),
             interpolation=cv2.INTER_LINEAR
         )
 
         pad_w = target - new_w
-
         pad_h = target - new_h
 
         pad_left = pad_w // 2
-
-        pad_right = (
-            pad_w - pad_left
-        )
+        pad_right = pad_w - pad_left
 
         pad_top = pad_h // 2
-
-        pad_bottom = (
-            pad_h - pad_top
-        )
+        pad_bottom = pad_h - pad_top
 
         letterboxed = cv2.copyMakeBorder(
             resized,
@@ -503,11 +418,7 @@ class SanskritOCR:
             pad_left,
             pad_right,
             cv2.BORDER_CONSTANT,
-            value=(
-                114,
-                114,
-                114
-            )
+            value=(114, 114, 114)
         )
 
         return (
@@ -523,10 +434,7 @@ class SanskritOCR:
     # PREPROCESS
     # ========================================================
 
-    def _preprocess(
-        self,
-        image
-    ):
+    def _preprocess(self, image):
 
         (
             letterboxed,
@@ -535,22 +443,12 @@ class SanskritOCR:
             pad_y,
             original_w,
             original_h
-        ) = self._letterbox(
-            image
-        )
-
-        # ----------------------------------------------------
-        # BGR -> RGB
-        # ----------------------------------------------------
+        ) = self._letterbox(image)
 
         rgb = cv2.cvtColor(
             letterboxed,
             cv2.COLOR_BGR2RGB
         )
-
-        # ----------------------------------------------------
-        # FLOAT32
-        # ----------------------------------------------------
 
         rgb = rgb.astype(
             np.float32
@@ -558,22 +456,10 @@ class SanskritOCR:
 
         rgb /= 255.0
 
-        # ----------------------------------------------------
-        # HWC -> CHW
-        # ----------------------------------------------------
-
         chw = np.transpose(
             rgb,
-            (
-                2,
-                0,
-                1
-            )
+            (2, 0, 1)
         )
-
-        # ----------------------------------------------------
-        # Batch
-        # ----------------------------------------------------
 
         blob = np.expand_dims(
             chw,
@@ -598,31 +484,20 @@ class SanskritOCR:
     # INFERENCE
     # ========================================================
 
-    def _inference(
-        self,
-        blob
-    ):
+    def _inference(self, blob):
 
-        # ----------------------------------------------------
-        # Input
-        # ----------------------------------------------------
-
-        if self.input_dtype == np.float32:
-
-            input_data = blob.astype(
-                np.float32
-            )
-
-        else:
+        if self.input_dtype != np.float32:
 
             scale, zero_point = (
-                self.input_quantization
+                self.input_details[0][
+                    "quantization"
+                ]
             )
 
             if scale == 0:
 
                 raise RuntimeError(
-                    "Quantized input has scale=0."
+                    "Quantized input scale = 0."
                 )
 
             input_data = (
@@ -636,47 +511,35 @@ class SanskritOCR:
                 self.input_dtype
             )
 
-        # ----------------------------------------------------
-        # Set tensor
-        # ----------------------------------------------------
+        else:
+
+            input_data = blob.astype(
+                np.float32
+            )
 
         self.interpreter.set_tensor(
             self.input_index,
             input_data
         )
 
-        # ----------------------------------------------------
-        # Invoke
-        # ----------------------------------------------------
-
         self.interpreter.invoke()
 
-        # ----------------------------------------------------
-        # Get output
-        # ----------------------------------------------------
-
-        output = (
-            self.interpreter.get_tensor(
-                self.output_index
-            )
+        output = self.interpreter.get_tensor(
+            self.output_index
         )
-
-        # ----------------------------------------------------
-        # Dequantize
-        # ----------------------------------------------------
 
         if self.output_dtype != np.float32:
 
             scale, zero_point = (
-                self.output_quantization
+                self.output_details[0][
+                    "quantization"
+                ]
             )
 
             if scale != 0:
 
                 output = (
-                    output.astype(
-                        np.float32
-                    )
+                    output.astype(np.float32)
                     - zero_point
                 ) * scale
 
@@ -696,13 +559,7 @@ class SanskritOCR:
         original_h
     ):
 
-        output = np.asarray(
-            output
-        )
-
-        # ----------------------------------------------------
-        # Remove batch
-        # ----------------------------------------------------
+        output = np.asarray(output)
 
         if output.ndim == 3:
 
@@ -711,13 +568,9 @@ class SanskritOCR:
         if output.ndim != 2:
 
             raise ValueError(
-                "Unexpected TFLite output shape: "
+                "Unexpected TFLite output: "
                 + str(output.shape)
             )
-
-        # ----------------------------------------------------
-        # [50,8400] -> [8400,50]
-        # ----------------------------------------------------
 
         if (
             output.shape[0] == 50
@@ -744,24 +597,12 @@ class SanskritOCR:
 
         detections = []
 
-        # ====================================================
-        # LOOP
-        # ====================================================
-
         for row in output:
 
             if len(row) != 50:
                 continue
 
-            # ------------------------------------------------
-            # Box
-            # ------------------------------------------------
-
             cx, cy, w, h = row[:4]
-
-            # ------------------------------------------------
-            # Classes
-            # ------------------------------------------------
 
             class_scores = row[4:]
 
@@ -777,10 +618,6 @@ class SanskritOCR:
 
             if confidence < self.conf_threshold:
                 continue
-
-            # ------------------------------------------------
-            # Normalized coordinates
-            # ------------------------------------------------
 
             x1 = (
                 cx - w / 2
@@ -798,10 +635,6 @@ class SanskritOCR:
                 cy + h / 2
             ) * self.img_size
 
-            # ------------------------------------------------
-            # Remove padding
-            # ------------------------------------------------
-
             x1 = (
                 x1 - pad_x
             ) / ratio
@@ -817,10 +650,6 @@ class SanskritOCR:
             y2 = (
                 y2 - pad_y
             ) / ratio
-
-            # ------------------------------------------------
-            # Clip
-            # ------------------------------------------------
 
             x1 = max(
                 0.0,
@@ -854,12 +683,7 @@ class SanskritOCR:
                 )
             )
 
-            # ------------------------------------------------
-            # Size
-            # ------------------------------------------------
-
             box_w = x2 - x1
-
             box_h = y2 - y1
 
             if box_w <= 2:
@@ -868,52 +692,26 @@ class SanskritOCR:
             if box_h <= 2:
                 continue
 
-            # ------------------------------------------------
-            # Detection
-            # ------------------------------------------------
-
-            detections.append({
-
-                "class_id":
-                    class_id,
-
-                "confidence":
-                    confidence,
-
-                "x1":
-                    float(x1),
-
-                "y1":
-                    float(y1),
-
-                "x2":
-                    float(x2),
-
-                "y2":
-                    float(y2),
-
-                "x":
-                    float(x1),
-
-                "y":
-                    float(y1),
-
-                "w":
-                    float(box_w),
-
-                "h":
-                    float(box_h),
-
-                "center_x":
-                    float(
+            detections.append(
+                {
+                    "class_id": class_id,
+                    "confidence": confidence,
+                    "x1": float(x1),
+                    "y1": float(y1),
+                    "x2": float(x2),
+                    "y2": float(y2),
+                    "x": float(x1),
+                    "y": float(y1),
+                    "w": float(box_w),
+                    "h": float(box_h),
+                    "center_x": float(
                         (x1 + x2) / 2
                     ),
-
-                "center_y":
-                    float(
+                    "center_y": float(
                         (y1 + y2) / 2
                     )
-            })
+                }
+            )
 
         return detections
 
@@ -922,10 +720,7 @@ class SanskritOCR:
     # ========================================================
 
     @staticmethod
-    def _iou(
-        a,
-        b
-    ):
+    def _iou(a, b):
 
         ax1 = a["x1"]
         ay1 = a["y1"]
@@ -986,12 +781,12 @@ class SanskritOCR:
         area_b = (
             max(
                 0.0,
-                bx2 - bx1
+                by2 - by1
             )
             *
             max(
                 0.0,
-                by2 - by1
+                bx2 - bx1
             )
         )
 
@@ -1004,6 +799,7 @@ class SanskritOCR:
         )
 
         if union <= 0:
+
             return 0.0
 
         return (
@@ -1013,13 +809,10 @@ class SanskritOCR:
         )
 
     # ========================================================
-    # CLASS AWARE NMS
+    # NMS
     # ========================================================
 
-    def _nms(
-        self,
-        detections
-    ):
+    def _nms(self, detections):
 
         if not detections:
 
@@ -1040,21 +833,20 @@ class SanskritOCR:
 
                 d
                 for d in detections
-
                 if d["class_id"] == class_id
 
             ]
 
             class_detections.sort(
                 key=lambda d:
-                    d["confidence"],
+                d["confidence"],
                 reverse=True
             )
 
             while class_detections:
 
-                best = (
-                    class_detections.pop(0)
+                best = class_detections.pop(
+                    0
                 )
 
                 final_detections.append(
@@ -1063,36 +855,24 @@ class SanskritOCR:
 
                 remaining = []
 
-                for candidate in (
-                    class_detections
-                ):
+                for candidate in class_detections:
 
                     overlap = self._iou(
                         best,
                         candidate
                     )
 
-                    if (
-                        overlap
-                        <
-                        self.iou_threshold
-                    ):
+                    if overlap < self.iou_threshold:
 
                         remaining.append(
                             candidate
                         )
 
-                class_detections = (
-                    remaining
-                )
-
-        # ----------------------------------------------------
-        # Sort top to bottom
-        # ----------------------------------------------------
+                class_detections = remaining
 
         final_detections.sort(
             key=lambda d:
-                d["center_y"]
+            d["center_y"]
         )
 
         return final_detections
@@ -1101,19 +881,18 @@ class SanskritOCR:
     # MAKE LINES
     # ========================================================
 
-    def _make_lines(
-        self,
-        detections
-    ):
+    def _make_lines(self, detections):
 
         if not detections:
 
             return []
 
-        avg_height = np.mean([
-            d["h"]
-            for d in detections
-        ])
+        avg_height = np.mean(
+            [
+                d["h"]
+                for d in detections
+            ]
+        )
 
         line_threshold = max(
             avg_height
@@ -1125,7 +904,7 @@ class SanskritOCR:
         ordered = sorted(
             detections,
             key=lambda d:
-                d["center_y"]
+            d["center_y"]
         )
 
         lines = []
@@ -1134,16 +913,18 @@ class SanskritOCR:
 
             best_line = None
 
-            best_distance = (
-                float("inf")
+            best_distance = float(
+                "inf"
             )
 
             for line in lines:
 
-                line_y = np.mean([
-                    d["center_y"]
-                    for d in line
-                ])
+                line_y = np.mean(
+                    [
+                        d["center_y"]
+                        for d in line
+                    ]
+                )
 
                 distance = abs(
                     detection["center_y"]
@@ -1152,25 +933,19 @@ class SanskritOCR:
                 )
 
                 if (
-                    distance
-                    <= line_threshold
+                    distance <= line_threshold
                     and
-                    distance
-                    <
-                    best_distance
+                    distance < best_distance
                 ):
 
                     best_line = line
-
-                    best_distance = (
-                        distance
-                    )
+                    best_distance = distance
 
             if best_line is None:
 
-                lines.append([
-                    detection
-                ])
+                lines.append(
+                    [detection]
+                )
 
             else:
 
@@ -1178,21 +953,15 @@ class SanskritOCR:
                     detection
                 )
 
-        # ----------------------------------------------------
-        # Sort lines
-        # ----------------------------------------------------
-
         lines.sort(
             key=lambda line:
-                np.mean([
+            np.mean(
+                [
                     d["center_y"]
                     for d in line
-                ])
+                ]
+            )
         )
-
-        # ----------------------------------------------------
-        # Sort characters
-        # ----------------------------------------------------
 
         for line_number, line in enumerate(
             lines
@@ -1200,7 +969,7 @@ class SanskritOCR:
 
             line.sort(
                 key=lambda d:
-                    d["center_x"]
+                d["center_x"]
             )
 
             for detection in line:
@@ -1215,10 +984,7 @@ class SanskritOCR:
     # LINES TO TEXT
     # ========================================================
 
-    def _lines_to_text(
-        self,
-        lines
-    ):
+    def _lines_to_text(self, lines):
 
         text_lines = []
 
@@ -1233,16 +999,13 @@ class SanskritOCR:
                 ]
 
                 if (
-                    0
-                    <= class_id
+                    0 <= class_id
                     <
                     len(self.classes)
                 ):
 
                     chars.append(
-                        self.classes[
-                            class_id
-                        ]
+                        self.classes[class_id]
                     )
 
             if chars:
@@ -1293,10 +1056,6 @@ class SanskritOCR:
                 "confidence"
             ]
 
-            # ------------------------------------------------
-            # Box
-            # ------------------------------------------------
-
             cv2.rectangle(
                 result,
                 (x1, y1),
@@ -1304,10 +1063,6 @@ class SanskritOCR:
                 (0, 255, 0),
                 2
             )
-
-            # ------------------------------------------------
-            # Label
-            # ------------------------------------------------
 
             label = (
                 f"{class_id} "
@@ -1349,10 +1104,6 @@ class SanskritOCR:
                 "الصورة فارغة."
             )
 
-        # ----------------------------------------------------
-        # Preprocess
-        # ----------------------------------------------------
-
         (
             blob,
             ratio,
@@ -1364,17 +1115,9 @@ class SanskritOCR:
             image
         )
 
-        # ----------------------------------------------------
-        # Inference
-        # ----------------------------------------------------
-
         output = self._inference(
             blob
         )
-
-        # ----------------------------------------------------
-        # Decode
-        # ----------------------------------------------------
 
         detections = self._decode(
             output,
@@ -1389,10 +1132,6 @@ class SanskritOCR:
             detections
         )
 
-        # ----------------------------------------------------
-        # NMS
-        # ----------------------------------------------------
-
         detections = self._nms(
             detections
         )
@@ -1401,25 +1140,13 @@ class SanskritOCR:
             detections
         )
 
-        # ----------------------------------------------------
-        # Lines
-        # ----------------------------------------------------
-
         lines = self._make_lines(
             detections
         )
 
-        # ----------------------------------------------------
-        # Text
-        # ----------------------------------------------------
-
         text = self._lines_to_text(
             lines
         )
-
-        # ----------------------------------------------------
-        # Draw
-        # ----------------------------------------------------
 
         result_image = None
 
@@ -1433,24 +1160,12 @@ class SanskritOCR:
             )
 
         return {
-
-            "text":
-                text,
-
-            "detections":
-                detections,
-
-            "lines":
-                lines,
-
-            "before_nms":
-                before_nms,
-
-            "after_nms":
-                after_nms,
-
-            "image":
-                result_image
+            "text": text,
+            "detections": detections,
+            "lines": lines,
+            "before_nms": before_nms,
+            "after_nms": after_nms,
+            "image": result_image
         }
 
     # ========================================================

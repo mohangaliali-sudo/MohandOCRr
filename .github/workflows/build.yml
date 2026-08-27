@@ -140,7 +140,13 @@ jobs:
       # ======================================================
       # BUILD APK
       # ======================================================
+      - name: Check p4a recipes
+        run: |
+          python -m pip install --upgrade python-for-android
+          p4a recipes | grep -Ei 'tflite|tensorflow|litert' || true
+          p4a --version
 
+          
       - name: Build Android APK
         env:
           P4A_DOWNLOAD_TIMEOUT: "180"

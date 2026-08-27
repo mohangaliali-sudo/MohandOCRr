@@ -23,17 +23,15 @@ import os
 
 import cv2
 import numpy as np
-
 try:
     from tflite_runtime.interpreter import Interpreter
 except ImportError:
     try:
         from ai_edge_litert.interpreter import Interpreter
     except ImportError:
-        from tensorflow.lite.python.interpreter import Interpreter# ============================================================
-# CLASS
-# ============================================================
-
+        raise RuntimeError(
+            "TFLite Interpreter is not available."
+        )
 class SanskritOCR:
 
     # ========================================================

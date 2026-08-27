@@ -8,17 +8,6 @@ package.domain = org.mohand
 
 source.dir = .
 
-version = 1.0.0
-
-orientation = portrait
-
-fullscreen = 0
-
-
-# ============================================================
-# SOURCE FILES
-# ============================================================
-
 source.include_exts =
     py,
     png,
@@ -30,32 +19,33 @@ source.include_exts =
     tflite,
     ttf
 
-
-# ============================================================
-# ASSETS
-# ============================================================
-
 source.include_patterns =
     assets/*.tflite,
     assets/fonts/*.ttf,
     classes.txt
 
+version = 1.0.0
+
+orientation = portrait
+
+fullscreen = 0
+
 
 # ============================================================
-# PYTHON REQUIREMENTS
+# Python requirements
 # ============================================================
 
 requirements =
     python3,
     kivy==2.3.1,
-    pillow,
     numpy,
+    pillow,
     opencv,
     plyer
 
 
 # ============================================================
-# ANDROID
+# Android
 # ============================================================
 
 android.api = 33
@@ -72,7 +62,7 @@ android.private_storage = True
 
 
 # ============================================================
-# ANDROID PERMISSIONS
+# Permissions
 # ============================================================
 
 android.permissions =
@@ -81,24 +71,20 @@ android.permissions =
 
 
 # ============================================================
-# ANDROID ENTRY POINT
+# Entry point
 # ============================================================
 
 android.entrypoint = org.kivy.android.PythonActivity
 
 
 # ============================================================
-# LOGGING
+# Logging
 # ============================================================
 
 log_level = 2
 
 warn_on_root = 1
 
-
-# ============================================================
-# BUILDOZER
-# ============================================================
 
 [buildozer]
 

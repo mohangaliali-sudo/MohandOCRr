@@ -1,7 +1,6 @@
 name: Build Android APK
 
 on:
-
   workflow_dispatch:
 
   push:
@@ -15,70 +14,32 @@ jobs:
 
     runs-on: ubuntu-22.04
 
-
     steps:
 
-      # =====================================================
+      # ======================================================
       # 1. CHECKOUT
-      # =====================================================
+      # ======================================================
 
       - name: Checkout repository
-
         uses: actions/checkout@v4
 
 
-      # =====================================================
-      # 2. PYTHON 3.11
-      # =====================================================
+      # ======================================================
+      # 2. HOST PYTHON
+      # ======================================================
 
-      - name: Set up Python 3.11
-
+      - name: Set up host Python 3.11
         uses: actions/setup-python@v5
 
         with:
           python-version: "3.11"
 
 
-      # =====================================================
-      # 3. JAVA 17
-      # =====================================================
-
-      - name: Set up Java 17
-
-        uses: actions/setup-java@v5
-
-        with:
-          distribution: temurin
-          java-version: "17"
-
-
-      # =====================================================
-      # 4. VERIFY JAVA
-      # =====================================================
-
-      - name: Verify Java
-
-        run: |
-
-          set -e
-
-          echo "========================================"
-          echo "JAVA"
-          echo "========================================"
-
-          echo "JAVA_HOME=$JAVA_HOME"
-
-          java -version
-
-          javac -version
-
-
-      # =====================================================
-      # 5. SYSTEM DEPENDENCIES
-      # =====================================================
+      # ======================================================
+      # 3. SYSTEM DEPENDENCIES
+      # ======================================================
 
       - name: Install system dependencies
-
         run: |
 
           set -e
@@ -89,6 +50,7 @@ jobs:
             git \
             zip \
             unzip \
+            openjdk-17-jdk \
             autoconf \
             automake \
             libtool \
@@ -107,12 +69,43 @@ jobs:
             p7zip-full
 
 
-      # =====================================================
-      # 6. PYTHON PACKAGES
-      # =====================================================
+      # ======================================================
+      # 4. JAVA
+      # ======================================================
 
-      - name: Install Python build tools
+      - name: Configure Java 17
+        run: |
 
+          set -e
+
+          JAVA_HOME_PATH="/usr/lib/jvm/java-17-openjdk-amd64"
+
+          echo "JAVA_HOME=$JAVA_HOME_PATH" >> "$GITHUB_ENV"
+
+          echo "$JAVA_HOME_PATH/bin" >> "$GITHUB_PATH"
+
+          java -version
+
+
+      # ======================================================
+      # 5. PYTHON INFORMATION
+      # ======================================================
+
+      - name: Show Python
+        run: |
+
+          set -e
+
+          python --version
+
+          python -c "import sys; print(sys.version)"
+
+
+      # ======================================================
+      # 6. INSTALL BUILDOZER
+      # ======================================================
+
+      - name: Install Buildozer
         run: |
 
           set -e
@@ -123,36 +116,26 @@ jobs:
             buildozer==1.6.0 \
             Cython==0.29.37
 
-
-      # =====================================================
-      # 7. VERIFY BUILD TOOLS
-      # =====================================================
-
-      - name: Check versions
-
-        run: |
-
-          set -e
-
+          echo ""
           echo "========================================"
-          echo "VERSIONS"
+          echo "BUILDOZER"
           echo "========================================"
-
-          python --version
-
-          pip --version
 
           buildozer --version
+
+          echo ""
+          echo "========================================"
+          echo "CYTHON"
+          echo "========================================"
 
           cython --version
 
 
-      # =====================================================
-      # 8. CHECK PROJECT
-      # =====================================================
+      # ======================================================
+      # 7. CHECK PROJECT
+      # ======================================================
 
       - name: Check project files
-
         run: |
 
           set -e
@@ -165,15 +148,15 @@ jobs:
             -maxdepth 5 \
             -type f \
             ! -path "./.git/*" \
+            ! -path "./.buildozer/*" \
             | sort
 
 
-      # =====================================================
-      # 9. CHECK MODEL
-      # =====================================================
+      # ======================================================
+      # 8. CHECK MODEL
+      # ======================================================
 
       - name: Check TFLite model
-
         run: |
 
           set -e
@@ -188,10 +171,13 @@ jobs:
 
           SIZE=$(stat -c%s assets/best.tflite)
 
-          echo "Model size: $SIZE bytes"
+          echo ""
+          echo "Model size:"
+          echo "$SIZE bytes"
 
           if [ "$SIZE" -lt 1000000 ]; then
 
+            echo ""
             echo "ERROR:"
             echo "best.tflite appears too small."
 
@@ -199,15 +185,15 @@ jobs:
 
           fi
 
-          echo "TFLite model OK."
+          echo ""
+          echo "TFLite model exists."
 
 
-      # =====================================================
-      # 10. CHECK FONTS
-      # =====================================================
+      # ======================================================
+      # 9. CHECK FONTS
+      # ======================================================
 
       - name: Check fonts
-
         run: |
 
           set -e
@@ -216,26 +202,23 @@ jobs:
           echo "FONTS"
           echo "========================================"
 
-          test -f \
-            assets/fonts/Cairo-Regular.ttf
+          test -f assets/fonts/Cairo-Regular.ttf
 
-          test -f \
-            assets/fonts/NotoSansDevanagari-Regular.ttf
+          test -f assets/fonts/NotoSansDevanagari-Regular.ttf
 
-          test -f \
-            assets/fonts/Roboto-Regular.ttf
+          test -f assets/fonts/Roboto-Regular.ttf
 
           ls -lh assets/fonts/*.ttf
 
+          echo ""
           echo "Fonts OK."
 
 
-      # =====================================================
-      # 11. CHECK CLASSES
-      # =====================================================
+      # ======================================================
+      # 10. CHECK CLASSES
+      # ======================================================
 
       - name: Check classes
-
         run: |
 
           set -e
@@ -246,41 +229,57 @@ jobs:
 
           test -f classes.txt
 
-          cat -n classes.txt
+          python - <<'PY'
 
-          CLASS_COUNT=$(wc -l < classes.txt)
+          from pathlib import Path
 
-          echo ""
+          path = Path("classes.txt")
 
-          echo "Class count: $CLASS_COUNT"
+          text = path.read_text(
+              encoding="utf-8-sig"
+          )
 
-          if [ "$CLASS_COUNT" -ne 46 ]; then
+          lines = [
+              line.strip()
+              for line in text.splitlines()
+              if line.strip()
+          ]
 
-            echo ""
-            echo "ERROR:"
-            echo "Expected 46 classes."
+          print("Classes:")
 
-            exit 1
+          for index, name in enumerate(lines):
 
-          fi
+              print(
+                  f"ID {index:02d} -> {name}"
+              )
 
-          echo ""
-          echo "Classes OK."
+          print()
+
+          print(
+              f"TOTAL CLASSES = {len(lines)}"
+          )
+
+          if len(lines) != 46:
+
+              raise SystemExit(
+                  "ERROR: classes.txt must contain exactly 46 classes."
+              )
+
+          print(
+              "SUCCESS: 46 classes."
+          )
+
+          PY
 
 
-      # =====================================================
-      # 12. CHECK PYTHON SYNTAX
-      # =====================================================
+      # ======================================================
+      # 11. PYTHON SYNTAX
+      # ======================================================
 
       - name: Check Python syntax
-
         run: |
 
           set -e
-
-          echo "========================================"
-          echo "PYTHON SYNTAX"
-          echo "========================================"
 
           python -m py_compile main.py
 
@@ -289,57 +288,76 @@ jobs:
           echo "Python syntax OK."
 
 
-      # =====================================================
-      # 13. CHECK BUILDOZER SPEC
-      # =====================================================
+      # ======================================================
+      # 12. CHECK BUILDOZER
+      # ======================================================
 
       - name: Check buildozer.spec
-
         run: |
 
           set -e
+
+          test -f buildozer.spec
 
           echo "========================================"
           echo "BUILDOZER SPEC"
           echo "========================================"
 
-          test -f buildozer.spec
-
           cat buildozer.spec
 
 
-      # =====================================================
-      # 14. VALIDATE TFLITE REQUIREMENT
-      # =====================================================
+      # ======================================================
+      # 13. VERIFY CRITICAL SETTINGS
+      # ======================================================
 
-      - name: Validate TFLite requirement
-
+      - name: Validate build configuration
         run: |
 
           set -e
 
           echo "========================================"
-          echo "TFLITE REQUIREMENT"
+          echo "BUILD CONFIGURATION"
           echo "========================================"
 
-          grep -E "^requirements" buildozer.spec || true
-
           echo ""
+          echo "Python requirement:"
 
-          grep -E "ai-edge-litert" \
+          grep "python3==3.11.9" \
             buildozer.spec
 
           echo ""
+          echo "TFLite runtime:"
 
-          echo "TFLite requirement detected."
+          grep "tflite-runtime" \
+            buildozer.spec
+
+          echo ""
+          echo "Architecture:"
+
+          grep "android.archs" \
+            buildozer.spec
+
+          echo ""
+          echo "API:"
+
+          grep "android.api" \
+            buildozer.spec
+
+          echo ""
+          echo "Min API:"
+
+          grep "android.minapi" \
+            buildozer.spec
+
+          echo ""
+          echo "Configuration checks passed."
 
 
-      # =====================================================
-      # 15. CACHE BUILDOZER
-      # =====================================================
+      # ======================================================
+      # 14. CACHE
+      # ======================================================
 
       - name: Cache Buildozer
-
         uses: actions/cache@v4
 
         with:
@@ -348,59 +366,32 @@ jobs:
             .buildozer
             ~/.buildozer
 
-          key: >
-            ${{ runner.os }}-
-            buildozer-
-            ${{ hashFiles('buildozer.spec') }}
+          key: ${{ runner.os }}-buildozer-python311-${{ hashFiles('buildozer.spec') }}
 
           restore-keys: |
+            ${{ runner.os }}-buildozer-python311-
             ${{ runner.os }}-buildozer-
 
 
-      # =====================================================
-      # 16. TEST INTERNET
-      # =====================================================
+      # ======================================================
+      # 15. CLEAN OLD BUILD
+      # ======================================================
 
-      - name: Test download connection
-
+      - name: Clean previous Buildozer state
         run: |
 
-          set +e
+          set -e
 
-          echo "========================================"
-          echo "NETWORK TEST"
-          echo "========================================"
+          rm -rf .buildozer
 
-          curl \
-            --fail \
-            --location \
-            --connect-timeout 30 \
-            --max-time 60 \
-            -I \
-            https://github.com
-
-          if [ $? -eq 0 ]; then
-
-            echo ""
-            echo "Network OK."
-
-          else
-
-            echo ""
-            echo "WARNING:"
-            echo "Network test failed."
-
-          fi
-
-          exit 0
+          echo "Old .buildozer directory removed."
 
 
-      # =====================================================
-      # 17. BUILDOZER BUILD
-      # =====================================================
+      # ======================================================
+      # 16. BUILD APK
+      # ======================================================
 
       - name: Build Android APK
-
         env:
 
           P4A_DOWNLOAD_RETRIES: "10"
@@ -412,42 +403,31 @@ jobs:
           set -e
 
           echo "========================================"
-          echo "BUILD ANDROID APK"
+          echo "ANDROID BUILD"
           echo "========================================"
 
           echo ""
+          echo "Host Python:"
 
-          echo "Python:"
           python --version
 
           echo ""
-
-          echo "Java:"
-          java -version
-
-          echo ""
-
           echo "Buildozer:"
+
           buildozer --version
 
           echo ""
-
           echo "Starting Buildozer..."
 
-          buildozer \
-            -v \
-            android \
-            debug
+          buildozer -v android debug
 
 
-      # =====================================================
-      # 18. FIND APK
-      # =====================================================
+      # ======================================================
+      # 17. FIND APK
+      # ======================================================
 
       - name: Find APK
-
         if: success()
-
         run: |
 
           set -e
@@ -463,25 +443,24 @@ jobs:
             -exec ls -lh {} \;
 
 
-      # =====================================================
-      # 19. VERIFY APK
-      # =====================================================
+      # ======================================================
+      # 18. VERIFY APK
+      # ======================================================
 
       - name: Verify APK
-
         if: success()
-
         run: |
 
           set -e
 
           APK_COUNT=$(
             find bin \
-            -type f \
-            -name "*.apk" \
-            | wc -l
+              -type f \
+              -name "*.apk" \
+              | wc -l
           )
 
+          echo ""
           echo "APK count: $APK_COUNT"
 
           if [ "$APK_COUNT" -eq 0 ]; then
@@ -498,14 +477,12 @@ jobs:
           echo "APK generated successfully."
 
 
-      # =====================================================
-      # 20. UPLOAD APK
-      # =====================================================
+      # ======================================================
+      # 19. UPLOAD APK
+      # ======================================================
 
       - name: Upload APK
-
         if: success()
-
         uses: actions/upload-artifact@v4
 
         with:
@@ -519,14 +496,12 @@ jobs:
           retention-days: 30
 
 
-      # =====================================================
-      # 21. UPLOAD BUILD LOGS
-      # =====================================================
+      # ======================================================
+      # 20. UPLOAD LOGS ON FAILURE
+      # ======================================================
 
       - name: Upload build logs
-
         if: failure()
-
         uses: actions/upload-artifact@v4
 
         with:

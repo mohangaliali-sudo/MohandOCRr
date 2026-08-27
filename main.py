@@ -27,7 +27,8 @@ from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 
-from kivy.graphics import Color, RoundedRectangle
+from kivy.graphics import Color
+from kivy.graphics import RoundedRectangle
 
 from plyer import camera
 
@@ -42,20 +43,24 @@ BASE_DIR = os.path.dirname(
     os.path.abspath(__file__)
 )
 
+
 ASSETS_DIR = os.path.join(
     BASE_DIR,
     "assets"
 )
+
 
 FONTS_DIR = os.path.join(
     ASSETS_DIR,
     "fonts"
 )
 
+
 MODEL_PATH = os.path.join(
     ASSETS_DIR,
     "best.tflite"
 )
+
 
 CLASSES_PATH = os.path.join(
     BASE_DIR,
@@ -72,10 +77,12 @@ DEVANAGARI_FONT = os.path.join(
     "NotoSansDevanagari-Regular.ttf"
 )
 
+
 ARABIC_FONT = os.path.join(
     FONTS_DIR,
     "Cairo-Regular.ttf"
 )
+
 
 ROBOTO_FONT = os.path.join(
     FONTS_DIR,
@@ -115,6 +122,7 @@ class RoundedButton(Button):
         )
 
         self.background_normal = ""
+
         self.background_down = ""
 
         with self.canvas.before:
@@ -145,6 +153,7 @@ class RoundedButton(Button):
     ):
 
         self.bg.pos = self.pos
+
         self.bg.size = self.size
 
 
@@ -165,9 +174,11 @@ class SanskritOCRApp(App):
         )
 
         self.current_image_path = None
+
         self.current_image = None
 
         self.processing = False
+
         self.ocr = None
 
         # ----------------------------------------------------
@@ -239,7 +250,6 @@ class SanskritOCRApp(App):
         )
 
         # Camera
-
         camera_button = RoundedButton(
             text="الكاميرا",
             font_name=self._arabic_font(),
@@ -255,7 +265,6 @@ class SanskritOCRApp(App):
         )
 
         # Gallery
-
         gallery_button = RoundedButton(
             text="المعرض",
             font_name=self._arabic_font(),
@@ -347,7 +356,6 @@ class SanskritOCRApp(App):
         )
 
         # Copy
-
         copy_button = RoundedButton(
             text="نسخ",
             font_name=self._arabic_font(),
@@ -363,7 +371,6 @@ class SanskritOCRApp(App):
         )
 
         # Clear
-
         clear_button = RoundedButton(
             text="مسح",
             font_name=self._arabic_font(),
@@ -504,7 +511,9 @@ class SanskritOCRApp(App):
 
             try:
 
-                missing = self.check_files()
+                missing = (
+                    self.check_files()
+                )
 
                 if missing:
 
@@ -529,7 +538,6 @@ class SanskritOCRApp(App):
                     iou_threshold=0.45,
 
                     line_threshold_ratio=0.50
-
                 )
 
                 Clock.schedule_once(
@@ -600,6 +608,9 @@ class SanskritOCRApp(App):
         self,
         *args
     ):
+
+        if self.processing:
+            return
 
         self.status_label.text = (
             "فتح الكاميرا..."
@@ -717,7 +728,9 @@ class SanskritOCRApp(App):
             *args
         ):
 
-            selection = chooser.selection
+            selection = (
+                chooser.selection
+            )
 
             if not selection:
                 return
@@ -787,6 +800,10 @@ class SanskritOCRApp(App):
         )
 
         self.image_widget.reload()
+
+        self.ocr_button.disabled = (
+            self.ocr is None
+        )
 
         self.status_label.text = (
             "تم اختيار الصورة"

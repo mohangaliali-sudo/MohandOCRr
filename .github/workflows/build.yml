@@ -1,11 +1,13 @@
 name: Build Android APK
 
 on:
+
   push:
     branches:
       - main
 
   workflow_dispatch:
+
 
 jobs:
 
@@ -13,31 +15,115 @@ jobs:
 
     runs-on: ubuntu-22.04
 
+    timeout-minutes: 120
+
     steps:
 
-      # ======================================================
-      # CHECKOUT
-      # ======================================================
+      # =====================================================
+      # Checkout
+      # =====================================================
 
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
 
-      # ======================================================
-      # PYTHON
-      # ======================================================
+      # =====================================================
+      # Python
+      # =====================================================
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
+
         with:
           python-version: "3.11"
 
 
-      # ======================================================
-      # SYSTEM DEPENDENCIES
-      # ======================================================
+      # =====================================================
+      # Project verification
+      # =====================================================
 
-      - name: Install system dependencies
+      - name: Verify project
+        shell: bash
+
+        run: |
+
+          set -eux
+
+          echo "================================"
+          echo "PROJECT"
+          echo "================================"
+
+          find . \
+            -maxdepth 4 \
+            -type f \
+            -not -path './.git/*' \
+            | sort
+
+          echo ""
+          echo "================================"
+          echo "MODEL"
+          echo "================================"
+
+          test -f assets/best.tflite
+
+          ls -lh assets/best.tflite
+
+          echo ""
+          echo "================================"
+          echo "RECIPE"
+          echo "================================"
+
+          test -f \
+            p4a-recipes/tflite-runtime/__init__.py
+
+
+      # =====================================================
+      # Download TFLite Runtime
+      # =====================================================
+
+      - name: Download TFLite Runtime ARM64
+        shell: bash
+
+        run: |
+
+          set -eux
+
+          mkdir -p \
+            p4a-recipes/tflite-runtime
+
+          curl \
+            -L \
+            --retry 5 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            -o \
+            p4a-recipes/tflite-runtime/tflite-runtime-android-arm64-2.19.0.tgz \
+            https://github.com/DeNA/tflite-runtime-builder/releases/download/2.19.0/tflite-runtime-android-arm64-2.19.0.tgz
+
+          ls -lh \
+            p4a-recipes/tflite-runtime/tflite-runtime-android-arm64-2.19.0.tgz
+
+
+      # =====================================================
+      # Verify archive
+      # =====================================================
+
+      - name: Inspect TFLite archive
+        shell: bash
+
+        run: |
+
+          set -eux
+
+          tar -tzf \
+            p4a-recipes/tflite-runtime/tflite-runtime-android-arm64-2.19.0.tgz
+
+
+      # =====================================================
+      # Dependencies
+      # =====================================================
+
+      - name: Install system packages
         run: |
 
           sudo apt-get update
@@ -47,159 +133,98 @@ jobs:
             zip \
             unzip \
             openjdk-17-jdk \
-            build-essential \
-            ccache \
             autoconf \
-            automake \
             libtool \
-            libltdl-dev \
             pkg-config \
-            gettext \
-            autopoint \
-            texinfo \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo6 \
             cmake \
             libffi-dev \
             libssl-dev \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev
+            automake \
+            build-essential \
+            ccache
 
 
-      # ======================================================
-      # PYTHON PACKAGES
-      # ======================================================
+      # =====================================================
+      # Buildozer
+      # =====================================================
 
-      - name: Install Python packages
+      - name: Install Buildozer
         run: |
-
-          python -m pip install --upgrade pip
 
           python -m pip install \
-            "setuptools<81" \
-            wheel \
-            packaging
+            --upgrade \
+            pip \
+            setuptools \
+            wheel
 
           python -m pip install \
-            "Cython==0.29.37"
-
-          python -m pip install \
-            "buildozer==1.6.0"
+            buildozer==1.6.0 \
+            Cython==0.29.37
 
 
-      # ======================================================
-      # VERIFY PROJECT
-      # ======================================================
+      # =====================================================
+      # Versions
+      # =====================================================
 
-      - name: Verify project files
+      - name: Versions
         run: |
 
-          echo "=============================="
-          echo "PROJECT"
-          echo "=============================="
+          python --version
 
-          find . -maxdepth 4 -type f | sort
+          buildozer --version
 
-          echo ""
-          echo "=============================="
-          echo "TFLITE MODEL"
-          echo "=============================="
-
-          if [ ! -f "assets/best.tflite" ]; then
-            echo "ERROR: assets/best.tflite not found"
-            exit 1
-          fi
-
-          ls -lh assets/best.tflite
-
-          echo ""
-          echo "=============================="
-          echo "CLASSES"
-          echo "=============================="
-
-          if [ ! -f "classes.txt" ]; then
-            echo "ERROR: classes.txt not found"
-            exit 1
-          fi
-
-          wc -l classes.txt
-
-          echo ""
-          echo "=============================="
-          echo "FONTS"
-          echo "=============================="
-
-          find assets/fonts -type f -name "*.ttf" -print
+          java -version
 
 
-      # ======================================================
-      # VERIFY RECIPE
-      # ======================================================
-
-      - name: Verify TFLite recipe
-        run: |
-
-          echo "=============================="
-          echo "P4A LOCAL RECIPE"
-          echo "=============================="
-
-          if [ ! -f "p4a-recipes/tflite-runtime/recipe.py" ]; then
-            echo "ERROR: tflite-runtime recipe not found"
-            exit 1
-          fi
-
-          sed -n '1,240p' \
-            p4a-recipes/tflite-runtime/recipe.py
-
-
-      # ======================================================
-      # CLEAN BUILD
-      # ======================================================
-
-      - name: Clean Buildozer
-        run: |
-
-          rm -rf .buildozer
-
-          rm -rf ~/.buildozer
-
-
-      # ======================================================
-      # BUILD APK
-      # ======================================================
+      # =====================================================
+      # Build
+      # =====================================================
 
       - name: Build APK
-        env:
-          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+        run: |
+
+          buildozer \
+            -v \
+            android \
+            debug
+
+
+      # =====================================================
+      # Find APK
+      # =====================================================
+
+      - name: Find APK
+        if: success()
 
         run: |
 
-          buildozer -v android debug
+          echo "================================"
+          echo "APK"
+          echo "================================"
+
+          find bin \
+            -type f \
+            -name "*.apk" \
+            -exec ls -lh {} \;
 
 
-      # ======================================================
-      # SHOW APK
-      # ======================================================
-
-      - name: Show APK
-        if: always()
-        run: |
-
-          echo "=============================="
-          echo "BIN DIRECTORY"
-          echo "=============================="
-
-          ls -lah bin/ || true
-
-
-      # ======================================================
-      # UPLOAD APK
-      # ======================================================
+      # =====================================================
+      # Upload APK
+      # =====================================================
 
       - name: Upload APK
         if: success()
+
         uses: actions/upload-artifact@v4
 
         with:
+
           name: MohandOCR-APK
+
           path: bin/*.apk
+
           if-no-files-found: error
